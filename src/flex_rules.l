@@ -9,16 +9,15 @@ using namespace std;
 
 %%
 
-PROGRAM|BEGIN|END|FUNCTION|READ|WRITE|IF|ELSE|FI|FOR|ROF|CONTINUE|BREAK|RETURN|INT|VOID|STRING|FLOAT	{yylval.sval = strdup(yytext); return KEYWORD;}
+PROGRAM|BEGIN|END|FUNCTION|READ|WRITE|IF|ELSE|FI|FOR|ROF|CONTINUE|BREAK|RETURN|INT|VOID|STRING|FLOAT	{yylval.sval = strdup(yytext); return yytext;}
 
 [[:digit:]]+	{yylval.ival = atoi(yytext); return INTLITERAL;}
 
-[[:digit:]]*"."[[:digit:]]+	{yylval.fval = atoi(yytext); return FLOATLITERAL;}
+[[:digit:]]*"."[[:digit:]]+	{yylval.fval = atoi(yytext); return FLOATLITERAL;} 
 
-":="|"+"|"-"|"*"|"/"|"="|"!="|"<"|">"|"("|")"|";"|","|"<="|">="	{yylval.sval = strdup(yytext); return OPERATOR;}
-
+":="|"+"|"-"|"*"|"/"|"="|"!="|"<"|">"|"("|")"|";"|","|"<="|">="	{return yytext;} 
+	
 \"(\\.|[^\"])*\"	{yylval.sval = strdup(yytext); return STRINGLITERAL;}
-;
 
 [[:alpha:]][[:alnum:]]*	{yylval.sval = strdup(yytext); return IDENTIFIER;}
 
