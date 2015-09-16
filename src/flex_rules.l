@@ -15,7 +15,12 @@ PROGRAM|BEGIN|END|FUNCTION|READ|WRITE|IF|ELSE|FI|FOR|ROF|CONTINUE|BREAK|RETURN|I
 
 [[:digit:]]*"."[[:digit:]]+	{yylval.fval = atoi(yytext); return FLOATLITERAL;} 
 
-":="|"+"|"-"|"*"|"/"|"="|"!="|"<"|">"|"("|")"|";"|","|"<="|">="	{return yytext;} 
+"+"|"-"|"*"|"/"|"="|"<"|">"|"("|")"|";"|","	{yylval.sval = strdup(yytext); return yytext;}
+
+":="	{yylval.sval = strdup(yytext); return ASSIGN;}
+"!="	{yylval.sval = strdup(yytext); return NEQ;}
+"<="	{yylval.sval = strdup(yytext); return LEQ;} 
+">="	{yylval.sval = strdup(yytext); return GEQ;}
 	
 \"(\\.|[^\"])*\"	{yylval.sval = strdup(yytext); return STRINGLITERAL;}
 

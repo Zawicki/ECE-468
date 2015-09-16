@@ -28,13 +28,16 @@ void yyerror(const char *s);
 %token FI
 %token FOR
 %token ROF
-%token CONTINUE
-%token BREAK
 %token RETURN
 %token INT
 %token VOID
 %token STRING
 %token FLOAT
+
+%token ASSIGN
+%token NEQ
+%token LEQ
+%token GEQ
 
 %token <ival> INTLITERAL
 %token <fval> FLOATLITERAL
@@ -57,7 +60,7 @@ decl:
 	;
 
 string_decl:
-	STRING id ':=' str ';'
+	STRING id ASSIGN str ';'
 	;
 str:
 	STRINGLITERAL
@@ -113,7 +116,7 @@ assign_stmt:
 	assign_expr ';'
 	;
 assign_expr:
-	id ':=' expr
+	id ASSIGN expr
 	;
 read_stmt:
 	READ '(' id_list ')' ';'
@@ -169,7 +172,7 @@ cond:
 	expr compop expr
 	;
 compop:
-	'<' | '>' | '=' '!=' | '<=' | '>='
+	'<' | '>' | '=' NEQ | LEQ | GEQ
 	;
 
 init_stmt:

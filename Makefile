@@ -13,7 +13,7 @@ group:
 compiler: parser scanner build organize
 
 scanner: ./src/$(FR).l
-	flex ./src/$(FR).l
+	flex --bison-bridge ./src/$(FR).l
 
 parser: ./src/$(BG).y
 	bison -d ./src/$(BG).y
