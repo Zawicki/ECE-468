@@ -1,26 +1,42 @@
 %{
 #include <cstdio>
 #include <iostream>
-using namespace std;
-#define YY_DECL extern "C" int yylex()
-
 #include "grammar.tab.h"
+using namespace std;
+
+#define YY_DECL extern "C" int yylex(void)
 %}
 
 %%
 
-PROGRAM|BEGIN|END|FUNCTION|READ|WRITE|IF|ELSE|FI|FOR|ROF|CONTINUE|BREAK|RETURN|INT|VOID|STRING|FLOAT	{yylval.sval = strdup(yytext); return yytext;}
+PROGRAM	{return PROGRAM;}
+END	{return END;}
+FUNCTION	{return FUNCTION;}
+READ	{return READ;}
+WRITE	{return WRITE;}
+IF	{return IF;}
+ELSE	{return ELSE;}
+FI	{return FI;}
+FOR	{return FOR;}
+ROF	{return ROF;}
+RETURN	{return RETURN;}
+INT	{return INT;}
+VOID	{return VOID;}
+STRING	{return STRING;}
+FLOAT	{return FLOAT;}
+
+BEGIN	{return _BEGIN;}
 
 [[:digit:]]+	{yylval.ival = atoi(yytext); return INTLITERAL;}
 
 [[:digit:]]*"."[[:digit:]]+	{yylval.fval = atoi(yytext); return FLOATLITERAL;} 
 
-"+"|"-"|"*"|"/"|"="|"<"|">"|"("|")"|";"|","	{yylval.sval = strdup(yytext); return yytext;}
+"+"|"-"|"*"|"/"|"="|"<"|">"|"("|")"|";"|","	{return yytext[0];}
 
-":="	{yylval.sval = strdup(yytext); return ASSIGN;}
-"!="	{yylval.sval = strdup(yytext); return NEQ;}
-"<="	{yylval.sval = strdup(yytext); return LEQ;} 
-">="	{yylval.sval = strdup(yytext); return GEQ;}
+":="	{return ASSIGN;}
+"!="	{return NEQ;}
+"<="	{return LEQ;} 
+">="	{return GEQ;}
 	
 \"(\\.|[^\"])*\"	{yylval.sval = strdup(yytext); return STRINGLITERAL;}
 

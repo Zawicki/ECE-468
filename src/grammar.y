@@ -3,11 +3,13 @@
 #include <iostream>
 using namespace std;
 
-extern "C" int yylex();
+extern "C" int yylex(void);
 extern "C" int yyparse();
 extern "C" FILE *yyin;
 
 void yyerror(const char *s);
+
+
 %}
 
 %union
@@ -15,10 +17,10 @@ void yyerror(const char *s);
 	int ival;
 	float fval;
 	char *sval;
-}
+};
 
 %token PROGRAM
-%token BEGIN
+%token _BEGIN
 %token END
 %token FUNCTION
 %token READ
@@ -47,7 +49,7 @@ void yyerror(const char *s);
 %%
 
 program:
-	PROGRAM id BEGIN pgm_body END
+	PROGRAM id _BEGIN pgm_body END
 	;
 id:
 	IDENTIFIER
@@ -96,7 +98,7 @@ func_declarations:
 	func_decl func_declarations | 
 	;
 func_decl:
-	FUNCTION any_type id '(' param_decl_list ')' BEGIN func_body END
+	FUNCTION any_type id '(' param_decl_list ')' _BEGIN func_body END
 	;
 func_body:
 	decl stmt_list
@@ -185,7 +187,6 @@ incr_stmt:
 for_stmt:
 	FOR '(' init_stmt ';' cond ';' incr_stmt ')' decl stmt_list ROF
 	;
-
 
 %%
 
