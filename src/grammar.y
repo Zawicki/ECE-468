@@ -6,6 +6,7 @@ using namespace std;
 extern "C" int yylex(void);
 extern "C" int yyparse();
 extern "C" FILE *yyin;
+extern int line_num;
 
 void yyerror(const char *s);
 
@@ -174,7 +175,7 @@ cond:
 	expr compop expr
 	;
 compop:
-	'<' | '>' | '=' NEQ | LEQ | GEQ
+	'<' | '>' | '=' | NEQ | LEQ | GEQ
 	;
 
 init_stmt:
@@ -213,11 +214,13 @@ int main(int argc, char * argv[])
 		yyparse();
 	} while (!feof(yyin));
 	fclose(fp);
-	cout << "Accepted";
+	cout << "Accepted" << endl;
+
+	return 0;
 }
 
 void yyerror(const char *s)
 {
 	cout << "Not accepted" << endl;
-	exit(-1);
+	exit(line_num);
 }

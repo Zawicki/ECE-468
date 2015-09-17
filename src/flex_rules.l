@@ -1,10 +1,8 @@
 %{
-#include <cstdio>
-#include <iostream>
 #include "grammar.tab.h"
 using namespace std;
-
 #define YY_DECL extern "C" int yylex(void)
+int line_num = 1;
 %}
 
 %%
@@ -44,6 +42,8 @@ BEGIN	{return _BEGIN;}
 
 --[^\n]*\n /* catches comments */
 
-[ \t\n\r]+ /* catch whitespace */
+[ \t\r]+ /* catch whitespace */
+
+\n	{line_num = line_num + 1;}
 
 %%
