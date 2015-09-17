@@ -59,7 +59,7 @@ pgm_body:
 	decl func_declarations
 	;
 decl:
-	string_decl | var_decl decl | 
+	string_decl decl | var_decl decl | 
 	;
 
 string_decl:
