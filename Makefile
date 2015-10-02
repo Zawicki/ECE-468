@@ -26,9 +26,7 @@ organize:
 	mv lex.yy.c ./generated/lex.yy.c
 	mv $(BG).tab.c ./generated/$(BG).tab.c
 	mv $(BG).tab.h ./generated/$(BG).tab.h
-	mkdir build
-	mv $(PROG) ./build/$(PROG)
 
 clean:
-	rm -f -r ./build
+	rm -f ./Micro
 	rm -f -r ./generated
