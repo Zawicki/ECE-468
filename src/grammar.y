@@ -1,6 +1,9 @@
 %{
 #include <cstdio>
 #include <iostream>
+#include <map>
+#include <stack>
+#include <sstream>
 using namespace std;
 
 extern "C" int yylex(void);
@@ -9,7 +12,17 @@ extern "C" FILE *yyin;
 extern int line_num;
 
 void yyerror(const char *s);
+void push_block();
 
+stack <string> scope;
+
+//map <string, map<string, string[2]> > symbol_table;
+
+int block_cnt = 0;
+
+stringstream ss;
+
+//struct wrapper { string vals[2]; };
 
 %}
 
@@ -50,10 +63,10 @@ void yyerror(const char *s);
 %%
 
 program:
-	PROGRAM id _BEGIN pgm_body END
+	PROGRAM id _BEGIN {scope.push("GLOBAL"); cout << "Symbol table " << stack.top();} pgm_body END {scope.pop();}
 	;
 id:
-	IDENTIFIER
+	IDENTIFIER	{$$ = $1;}
 	;
 pgm_body:
 	decl func_declarations
@@ -63,17 +76,17 @@ decl:
 	;
 
 string_decl:
-	STRING id ASSIGN str ';'
+	STRING id ASSIGN str ';'	
 	;
 str:
-	STRINGLITERAL
+	STRINGLITERAL {$$ = $1;}
 	;
 
 var_decl:
 	var_type id_list ';'
 	;
 var_type:
-	FLOAT | INT
+	FLOAT {$$ = FLOAT;}| INT {$$ = INT;}
 	;
 any_type:
 	var_type | VOID
@@ -99,7 +112,7 @@ func_declarations:
 	func_decl func_declarations | 
 	;
 func_decl:
-	FUNCTION any_type id '(' param_decl_list ')' _BEGIN func_body END
+	FUNCTION any_type id {scope.push($3); cout << "Symbol table " << scope.top();} '(' param_decl_list ')' _BEGIN func_body END {scope.pop();}
 	;
 func_body:
 	decl stmt_list
@@ -166,10 +179,10 @@ mulop:
 	;
 
 if_stmt:
-	IF '(' cond ')' decl stmt_list else_part FI
+	IF {push_block();} '(' cond ')' decl stmt_list else_part FI {scope.pop();}
 	;
 else_part:
-	ELSE decl stmt_list |
+	ELSE {push_block();} decl stmt_list |
 	;
 cond:
 	expr compop expr
@@ -186,7 +199,7 @@ incr_stmt:
 	;
 
 for_stmt:
-	FOR '(' init_stmt ';' cond ';' incr_stmt ')' decl stmt_list ROF
+	FOR {push_block();} '(' init_stmt ';' cond ';' incr_stmt ')' decl stmt_list ROF {scope.pop();}
 	;
 
 %%
@@ -217,6 +230,14 @@ int main(int argc, char * argv[])
 	cout << "Accepted" << endl;
 
 	return 0;
+}
+
+void push_block()
+{
+	ss.str(""); 
+	ss << "BLOCK " << ++block_cnt; 
+	scope.push(ss.str());
+	cout << "Symbol table " << scope.top() << endl;
 }
 
 void yyerror(const char *s)
