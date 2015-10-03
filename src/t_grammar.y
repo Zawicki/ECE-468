@@ -65,8 +65,8 @@ stringstream ss;
 %%
 
 program:
-	PROGRAM id _BEGIN	{scope.push("GLOBAL"); cout << "Symbol table " << scope.top() << endl}
-	pgm_body END
+	PROGRAM id _BEGIN	{scope.push("GLOBAL"); cout << "Symbol table " << stack.top()} 
+	pgm_body END	{scope.pop()}
 	;
 id:
 	IDENTIFIER	{$$ = $1}
@@ -115,8 +115,8 @@ func_declarations:
 	func_decl func_declarations | 
 	;
 func_decl:
-	FUNCTION any_type id	{scope.push($3); cout << endl << "Symbol table " << scope.top() << endl} 
-	'(' param_decl_list ')' _BEGIN func_body END
+	FUNCTION any_type id	{scope.push($3); cout << "Symbol table " << scope.top()} 
+	'(' param_decl_list ')' _BEGIN func_body END	{scope.pop()}
 	;
 func_body:
 	decl stmt_list
@@ -126,7 +126,7 @@ stmt_list:
 	stmt stmt_list | 
 	;
 stmt:
-	base_stmt | if_stmt | for_stmt
+	base_stmt | if_stmt {push_block()} | for_stmt {push_block()}
 	;
 base_stmt:
 	assign_stmt | read_stmt | write_stmt | return_stmt
@@ -183,11 +183,11 @@ mulop:
 	;
 
 if_stmt:
-	IF	{push_block()}
-	'(' cond ')' decl stmt_list else_part FI	{scope.pop()}
+	IF '(' cond ')' decl stmt_list else_part FI	{scope.pop()}
 	;
 else_part:
-	ELSE decl stmt_list |
+	ELSE 
+	decl stmt_list |
 	;
 cond:
 	expr compop expr
@@ -204,9 +204,7 @@ incr_stmt:
 	;
 
 for_stmt:
-	FOR	{push_block()}
-	'(' init_stmt ';' cond ';' incr_stmt ')' decl stmt_list 
-	ROF	{scope.pop()}
+	FOR '(' init_stmt ';' cond ';' incr_stmt ')' decl stmt_list ROF {scope.pop()}
 	;
 
 %%
@@ -234,6 +232,7 @@ int main(int argc, char * argv[])
 		yyparse();
 	} while (!feof(yyin));
 	fclose(fp);
+	cout << "Accepted" << endl;
 
 	return 0;
 }
@@ -243,7 +242,7 @@ void push_block()
 	ss.str(""); 
 	ss << "BLOCK " << ++block_cnt; 
 	scope.push(ss.str());
-	cout << endl << "Symbol table " << scope.top() << endl;
+	cout << "Symbol table " << scope.top() << endl;
 }
 
 void yyerror(const char *s)
