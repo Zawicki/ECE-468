@@ -82,7 +82,8 @@ id:
 	IDENTIFIER	{$$ = $1}
 	;
 pgm_body:
-	decl func_declarations
+	decl	{symbol_table[scope.top()] = table; table.clear();}
+	func_declarations
 	;
 decl:
 	string_decl decl | var_decl decl | 
@@ -137,7 +138,14 @@ param_decl_list:
 	param_decl param_decl_tail | 
 	;
 param_decl:
-	var_type id
+	var_type id	{w.vals[0] = $1; w.vals[1] = "";
+			r = table.insert(pair<string, wrapper>($2, w));
+			if (!r.second)
+			{
+				yyerror($2);
+			}
+			p = table.find($2)->second;
+			cout << "name " << $2 << " type " << p.vals[0] << endl}
 	;
 param_decl_tail:
 	',' param_decl param_decl_tail | 
@@ -152,7 +160,8 @@ func_decl:
 	END {scope.pop()}
 	;
 func_body:
-	decl stmt_list
+	decl {symbol_table[scope.top()] = table; table.clear()}
+	stmt_list
 	;
 
 stmt_list:
@@ -216,12 +225,14 @@ mulop:
 	;
 
 if_stmt:
-	IF '(' cond ')' decl stmt_list else_part 
+	IF '(' cond ')' decl	{symbol_table[scope.top()] = table; table.clear()}
+	stmt_list else_part 
 	FI {scope.pop()}
 	;
 else_part:
 	ELSE {push_block()} 
-	decl stmt_list {scope.pop()}|
+	decl	{symbol_table[scope.top()] = table; table.clear()}
+	stmt_list {scope.pop()}|
 	;
 cond:
 	expr compop expr
@@ -238,8 +249,9 @@ incr_stmt:
 	;
 
 for_stmt:
-	FOR
-	'(' init_stmt ';' cond ';' incr_stmt ')' decl stmt_list 
+	FOR '(' init_stmt ';' cond ';' incr_stmt ')' 
+	decl	{symbol_table[scope.top()] = table; table.clear()}
+	stmt_list 
 	ROF	{scope.pop()}
 	;
 
@@ -269,13 +281,6 @@ int main(int argc, char * argv[])
 	} while (!feof(yyin));
 	fclose(fp);
 
-	cout << endl << "popping off the rest of the stack" << endl;
-
-	while(!scope.empty())
-	{
-		cout << scope.top() << endl;
-		scope.pop();
-	}
 	return 0;
 }
 

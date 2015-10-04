@@ -7,7 +7,7 @@ BEGIN
 
     FUNCTION INT F (INT n)
     BEGIN
-
+	INT n1;
         IF (n > 2)
             RETURN F(n-1)+F(n-2);
         ELSE
