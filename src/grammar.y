@@ -4,6 +4,8 @@
 #include <map>
 #include <stack>
 #include <sstream>
+#include <vector>
+#include <string>
 using namespace std;
 
 extern "C" int yylex(void);
@@ -30,7 +32,7 @@ int block_cnt = 0;
 
 stringstream ss;
 
-//vector id_vec;
+vector <string> id_vec;
 
 %}
 
@@ -102,19 +104,33 @@ str:
 	;
 
 var_decl:
-	var_type id_list ';'
+	var_type id_list ';'	{for (vector <string>::reverse_iterator it = id_vec.rbegin(); it != id_vec.rend(); ++it)
+				{
+					w.vals[0] = $1;
+					w.vals[1] = "";
+					r = table.insert(pair<string, wrapper>(*it, w));
+					if (!r.second)
+					{
+						string tmp = *it;
+						yyerror(tmp.c_str());
+					}
+					p = table.find(*it)->second;
+					cout << "name " << *it << " type " << p.vals[0] << endl;
+				}
+				id_vec.clear()}
 	;
 var_type:
-	FLOAT {$$ = $1}| INT {$$ = $1}
+	FLOAT {$$ = $1} 
+	| INT {$$ = $1}
 	;
 any_type:
 	var_type | VOID
 	;
 id_list:
-	id id_tail
+	id id_tail	{id_vec.push_back($1)}
 	;
 id_tail:
-	',' id id_tail | 
+	',' id id_tail {id_vec.push_back($2)}| 
 	;
 
 param_decl_list:
@@ -273,6 +289,6 @@ void push_block()
 
 void yyerror(const char *s)
 {
-	cout << "Not accepted" << endl;
+	cout << "DECLARATION ERROR " << s << endl;
 	exit(line_num);
 }
