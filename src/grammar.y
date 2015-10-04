@@ -14,15 +14,23 @@ extern int line_num;
 void yyerror(const char *s);
 void push_block();
 
+struct wrapper 
+{ 
+	string vals[2]; 
+}w, p;
+
 stack <string> scope;
 
-//map <string, map<string, string[2]> > symbol_table;
+pair<map <string, wrapper>::iterator, bool> r;
+map <string, wrapper> table;
+
+map <string, map<string, wrapper> > symbol_table;
 
 int block_cnt = 0;
 
 stringstream ss;
 
-//struct wrapper { string vals[2]; };
+//vector id_vec;
 
 %}
 
@@ -30,7 +38,7 @@ stringstream ss;
 {
 	int ival;
 	float fval;
-	char* sval;
+	char * sval;
 };
 
 %token PROGRAM
@@ -45,10 +53,10 @@ stringstream ss;
 %token FOR
 %token ROF
 %token RETURN
-%token INT
+%token <sval> INT
 %token VOID
 %token STRING
-%token FLOAT
+%token <sval> FLOAT
 
 %token ASSIGN
 %token NEQ
@@ -60,7 +68,7 @@ stringstream ss;
 %token <sval> STRINGLITERAL
 %token <sval> IDENTIFIER
 
-%type <sval> id
+%type <sval> id str var_type
 
 %%
 
@@ -79,17 +87,25 @@ decl:
 	;
 
 string_decl:
-	STRING id ASSIGN str ';'	
+	STRING id ASSIGN str ';'	{w.vals[0] = "STRING";
+					w.vals[1] = $4;
+					r = table.insert(pair<string, wrapper>($2, w));
+					if (!r.second)
+					{
+						yyerror($2);
+					}
+					p = table.find($2)->second;
+					cout << "name " << $2 << " type " << p.vals[0] << " value " << p.vals[1] << endl}	
 	;
 str:
-	STRINGLITERAL
+	STRINGLITERAL	{$$ = $1}
 	;
 
 var_decl:
 	var_type id_list ';'
 	;
 var_type:
-	FLOAT | INT
+	FLOAT {$$ = $1}| INT {$$ = $1}
 	;
 any_type:
 	var_type | VOID

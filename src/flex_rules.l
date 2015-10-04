@@ -19,10 +19,10 @@ FI		{return FI;}
 FOR		{return FOR;}
 ROF		{return ROF;}
 RETURN		{return RETURN;}
-INT		{return INT;}
+INT		{yylval.sval = strdup(yytext); return INT;}
 VOID		{return VOID;}
 STRING		{return STRING;}
-FLOAT		{return FLOAT;}
+FLOAT		{yylval.sval = strdup(yytext); return FLOAT;}
 
 BEGIN		{return _BEGIN;}
 
