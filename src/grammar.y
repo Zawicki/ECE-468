@@ -15,6 +15,7 @@ extern int line_num;
 
 void yyerror(const char *s);
 void push_block();
+void add_symbol_table();
 
 struct wrapper 
 { 
@@ -82,11 +83,11 @@ id:
 	IDENTIFIER	{$$ = $1}
 	;
 pgm_body:
-	decl	{symbol_table[scope.top()] = table; table.clear();}
+	decl	
 	func_declarations
 	;
 decl:
-	string_decl decl | var_decl decl | 
+	string_decl decl | var_decl decl | {add_symbol_table()} 
 	;
 
 string_decl:
@@ -160,7 +161,7 @@ func_decl:
 	END {scope.pop()}
 	;
 func_body:
-	decl {symbol_table[scope.top()] = table; table.clear()}
+	decl
 	stmt_list
 	;
 
@@ -225,13 +226,13 @@ mulop:
 	;
 
 if_stmt:
-	IF '(' cond ')' decl	{symbol_table[scope.top()] = table; table.clear()}
+	IF '(' cond ')' decl
 	stmt_list else_part 
 	FI {scope.pop()}
 	;
 else_part:
 	ELSE {push_block()} 
-	decl	{symbol_table[scope.top()] = table; table.clear()}
+	decl
 	stmt_list {scope.pop()}|
 	;
 cond:
@@ -249,9 +250,7 @@ incr_stmt:
 	;
 
 for_stmt:
-	FOR '(' init_stmt ';' cond ';' incr_stmt ')' 
-	decl	{symbol_table[scope.top()] = table; table.clear()}
-	stmt_list 
+	FOR '(' init_stmt ';' cond ';' incr_stmt ')' decl stmt_list 
 	ROF	{scope.pop()}
 	;
 
@@ -281,15 +280,40 @@ int main(int argc, char * argv[])
 	} while (!feof(yyin));
 	fclose(fp);
 
+	cout << endl << "-------------------------------------------------" << endl;
+	cout << "Iterating through the symbol table" << endl << endl;
+	
+	for (map <string, map <string, wrapper> >::iterator it = symbol_table.begin(); it != symbol_table.end(); ++it)
+	{
+		cout << endl << "Symbol table " << it->first << endl;
+		map <string, wrapper> &internal_map = it->second;
+		for (map <string, wrapper>::iterator it2 = internal_map.begin(); it2 != internal_map.end(); ++it2)
+		{
+			p = it2->second;
+			if (p.vals[0] == "STRING")
+				cout << "name " << it2->first << " type " << p.vals[0] << " value " << p.vals[1] << endl;
+			else
+				cout << "name " << it2->first << " type " << p.vals[0] << endl;
+
+		}
+	}
+
 	return 0;
 }
 
 void push_block()
 {
-	ss.str(""); 
-	ss << "BLOCK " << ++block_cnt; 
+	ss.str("");
+	ss << "BLOCK " << ++block_cnt;
 	scope.push(ss.str());
 	cout << endl << "Symbol table " << scope.top() << endl;
+}
+
+void add_symbol_table()
+{
+	cout << "Adding table for scope " << scope.top() << endl;
+	symbol_table[scope.top()] = table;
+	//table.clear();
 }
 
 void yyerror(const char *s)
