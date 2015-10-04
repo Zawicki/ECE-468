@@ -132,7 +132,7 @@ id_list:
 	id id_tail	{id_vec.push_back($1)}
 	;
 id_tail:
-	',' id id_tail {id_vec.push_back($2)}| 
+	',' id id_tail {id_vec.push_back($2)}|
 	;
 
 param_decl_list:
@@ -161,7 +161,7 @@ func_decl:
 	END {scope.pop()}
 	;
 func_body:
-	decl
+	decl 
 	stmt_list
 	;
 
@@ -169,7 +169,7 @@ stmt_list:
 	stmt stmt_list | 
 	;
 stmt:
-	base_stmt | if_stmt {push_block()} | for_stmt {push_block()}
+	base_stmt | if_stmt| for_stmt	
 	;
 base_stmt:
 	assign_stmt | read_stmt | write_stmt | return_stmt
@@ -226,13 +226,14 @@ mulop:
 	;
 
 if_stmt:
-	IF '(' cond ')' decl
+	IF  {push_block()}
+	'(' cond ')' decl 
 	stmt_list else_part 
 	FI {scope.pop()}
 	;
 else_part:
 	ELSE {push_block()} 
-	decl
+	decl  
 	stmt_list {scope.pop()}|
 	;
 cond:
@@ -250,8 +251,9 @@ incr_stmt:
 	;
 
 for_stmt:
-	FOR '(' init_stmt ';' cond ';' incr_stmt ')' decl stmt_list 
-	ROF	{scope.pop()}
+	FOR  {push_block()}
+	'(' init_stmt ';' cond ';' incr_stmt ')' decl 	
+	stmt_list ROF	{scope.pop()}
 	;
 
 %%
@@ -313,7 +315,7 @@ void add_symbol_table()
 {
 	cout << "Adding table for scope " << scope.top() << endl;
 	symbol_table[scope.top()] = table;
-	//table.clear();
+	table.clear();
 }
 
 void yyerror(const char *s)
