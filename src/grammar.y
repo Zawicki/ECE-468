@@ -282,7 +282,9 @@ int main(int argc, char * argv[])
 	} while (!feof(yyin));
 	fclose(fp);
 
-	cout << endl << "-------------------------------------------------" << endl;
+	//Uncomment below to print off the symbol table directly from the maps
+
+	/*cout << endl << "-------------------------------------------------" << endl;
 	cout << "Iterating through the symbol table" << endl << endl;
 	
 	for (map <string, map <string, wrapper> >::iterator it = symbol_table.begin(); it != symbol_table.end(); ++it)
@@ -298,7 +300,7 @@ int main(int argc, char * argv[])
 				cout << "name " << it2->first << " type " << p.vals[0] << endl;
 
 		}
-	}
+	}*/
 
 	return 0;
 }
@@ -313,7 +315,6 @@ void push_block()
 
 void add_symbol_table()
 {
-	cout << "Adding table for scope " << scope.top() << endl;
 	symbol_table[scope.top()] = table;
 	table.clear();
 }
