@@ -76,7 +76,7 @@ vector <string> id_vec;
 %%
 
 program:
-	PROGRAM id _BEGIN	{scope.push("GLOBAL"); cout << "Symbol table " << scope.top() << endl}
+	PROGRAM id _BEGIN	{scope.push("GLOBAL")}
 	pgm_body END	{scope.pop()}
 	;
 id:
@@ -97,9 +97,7 @@ string_decl:
 					if (!r.second)
 					{
 						yyerror($2);
-					}
-					p = table.find($2)->second;
-					cout << "name " << $2 << " type " << p.vals[0] << " value " << p.vals[1] << endl}	
+					}}
 	;
 str:
 	STRINGLITERAL	{$$ = $1}
@@ -116,8 +114,6 @@ var_decl:
 						string tmp = *it;
 						yyerror(tmp.c_str());
 					}
-					p = table.find(*it)->second;
-					cout << "name " << *it << " type " << p.vals[0] << endl;
 				}
 				id_vec.clear()}
 	;
@@ -144,9 +140,7 @@ param_decl:
 			if (!r.second)
 			{
 				yyerror($2);
-			}
-			p = table.find($2)->second;
-			cout << "name " << $2 << " type " << p.vals[0] << endl}
+			}}
 	;
 param_decl_tail:
 	',' param_decl param_decl_tail | 
@@ -156,7 +150,7 @@ func_declarations:
 	func_decl func_declarations | 
 	;
 func_decl:
-	FUNCTION any_type id	{scope.push($3); cout << endl << "Symbol table " << scope.top() << endl} 
+	FUNCTION any_type id	{scope.push($3);} 
 	'(' param_decl_list ')' _BEGIN func_body 
 	END {scope.pop()}
 	;
@@ -271,7 +265,7 @@ int main(int argc, char * argv[])
 	FILE * fp = fopen(in_file, "r");
 	if (!fp)
 	{
-		cout << "Could not open " << in_file << endl;
+		cout << "Please provide a single file to compile. " << in_file << endl;
 		return -1;
 	}
 	yyin = fp;
@@ -310,7 +304,6 @@ void push_block()
 	ss.str("");
 	ss << "BLOCK " << ++block_cnt;
 	scope.push(ss.str());
-	cout << endl << "Symbol table " << scope.top() << endl;
 }
 
 void add_symbol_table()
