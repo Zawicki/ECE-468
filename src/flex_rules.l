@@ -1,6 +1,7 @@
 %{
 #include <iostream>
 #include "grammar.tab.h"
+#include "src/AST.h"
 using namespace std;
 #define YY_DECL extern "C" int yylex(void)
 int line_num = 1;
@@ -26,9 +27,9 @@ FLOAT		{yylval.sval = strdup(yytext); return FLOAT;}
 
 BEGIN		{return _BEGIN;}
 
-[[:digit:]]+	{yylval.ival = atoi(yytext); return INTLITERAL;}
+[[:digit:]]+	{yylval.sval = strdup(yytext);  return INTLITERAL;}
 
-[[:digit:]]*"."[[:digit:]]+	{yylval.fval = atoi(yytext); return FLOATLITERAL;} 
+[[:digit:]]*"."[[:digit:]]+	{yylval.sval = strdup(yytext); return FLOATLITERAL;} 
 
 "+"|"-"|"*"|"/"|"="|"<"|">"|"("|")"|";"|","	{return yytext[0];}
 
