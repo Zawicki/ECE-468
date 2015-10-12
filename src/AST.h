@@ -54,20 +54,20 @@ class VarNode : public ASTNode
 
 class OpNode : public ASTNode
 {
-	char op;
+	string op;
 
 	public:
 		ASTNode * left;
 		ASTNode * right;
 
-		OpNode(char op)
+		OpNode(string opr)
 		{
-			this->op = op;
+			op = opr;
 		}
 
-		OpNode(char op, ASTNode * left, ASTNode * right)
+		OpNode(string opr, ASTNode * left, ASTNode * right)
 		{
-			op = op;
+			op = opr;
 			this->left = left;
 			this->right = right;
 		}
@@ -83,7 +83,7 @@ class OpNode : public ASTNode
 		}
 
 		string value()
-		{
+		{ 
 			return op;
 		}
 		

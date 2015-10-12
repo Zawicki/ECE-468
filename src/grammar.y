@@ -70,8 +70,8 @@ vector <string> id_vec;
 %token LEQ
 %token GEQ
 
-%token <AST_ptr> INTLITERAL
-%token <AST_ptr> FLOATLITERAL
+%token <sval> INTLITERAL
+%token <sval> FLOATLITERAL
 %token <sval> STRINGLITERAL
 %token <sval> IDENTIFIER
 
@@ -182,9 +182,9 @@ assign_stmt:
 	;
 assign_expr:
 	id ASSIGN expr {map <string, wrapper>  m = symbol_table["GLOBAL"]; 
-			string key = $1; 
-			VarNode n = VarNode(key, m[key]);
-			 $$ = new OpNode('=', &n, $3)}
+			string key = $1;
+			VarNode n = VarNode(key, m[key].vals[0]);
+			 $$ = new OpNode("=", &n, $3)}
 	;
 read_stmt:
 	READ '(' id_list ')' ';'
@@ -226,17 +226,17 @@ expr_list_tail:
 	;
 primary:
 	'(' expr ')' {$$ = $2} 
-	| id {map <string, wrapper> m = symbol_table["GLOBAL"]; string key = $1; $$ = new VarNode(key, m[key])}
+	| id {map <string, wrapper> m = symbol_table["GLOBAL"]; string key = $1; $$ = new VarNode(key, m[key].vals[0])}
 	| INTLITERAL {$$ = new ConstNode($1, "INT")}
 	| FLOATLITERAL {$$ = new ConstNode($1, "FLOAT")}
 	;
 addop:
-	'+' {$$ = new OpNode('+')}
-	| '-' {$$ = new OpNode('-')}
+	'+' {$$ = new OpNode("+")}
+	| '-' {$$ = new OpNode("-")}
 	;
 mulop:
-	'*' {$$ = new OpNode('*')}
-	| '/' {$$ = new OpNode('/')}
+	'*' {$$ = new OpNode("*")}
+	| '/' {$$ = new OpNode("/")}
 	;
 
 if_stmt:
