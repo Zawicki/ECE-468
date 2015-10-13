@@ -22,7 +22,7 @@ build:
 	$(CC) $(BG).tab.c lex.yy.c -lfl -o $(PROG)
 
 organize:
-	mkdir generated
+	mkdir -p generated
 	mv lex.yy.c ./generated/lex.yy.c
 	mv $(BG).tab.c ./generated/$(BG).tab.c
 	mv $(BG).tab.h ./generated/$(BG).tab.h

@@ -3,6 +3,10 @@ using namespace std;
 class ASTNode 
 {
 	public:
+		string reg;
+		ASTNode * left;
+		ASTNode * right;
+
 		virtual string value() = 0;
 		virtual string type() = 0;
 };
@@ -16,6 +20,8 @@ class ConstNode : public ASTNode
 		{
 			val = value;
 			typ = type;
+			this->left = NULL;
+			this->right = NULL;
 		}
 
 		string value()
@@ -38,7 +44,9 @@ class VarNode : public ASTNode
 		VarNode(string value, string type)
 		{
 			val = value;
-			typ = type;	
+			typ = type;
+			this->left = NULL;
+			this->right = NULL;	
 		}
 
 		string value()
@@ -57,12 +65,11 @@ class OpNode : public ASTNode
 	string op;
 
 	public:
-		ASTNode * left;
-		ASTNode * right;
-
 		OpNode(string opr)
 		{
 			op = opr;
+			this->left = NULL;
+			this->right = NULL;
 		}
 
 		OpNode(string opr, ASTNode * left, ASTNode * right)

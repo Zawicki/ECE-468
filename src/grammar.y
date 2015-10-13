@@ -1,4 +1,4 @@
-%{
+%code top{
 #include <cstdio>
 #include <iostream>
 #include <map>
@@ -6,7 +6,7 @@
 #include <sstream>
 #include <vector>
 #include <string>
-#include "./src/AST.h"
+//#include "./src/AST.h"
 
 using namespace std;
 
@@ -18,7 +18,6 @@ extern int line_num;
 void yyerror(const char *s);
 void push_block();
 void add_symbol_table();
-void printAST(ASTNode * n);
 
 struct wrapper 
 { 
@@ -38,15 +37,24 @@ stringstream ss;
 
 vector <string> id_vec;
 
-%}
+int reg_cnt = 0;
+
+}
+
+%code requires
+{
+	#include "./src/AST.h"
+	void printAST(ASTNode * n);
+	//void destroy_AST(ASTNode * n)
+}
 
 %union
 {
 	int ival;
 	float fval;
-	char * sval;
-	ASTNode * AST_ptr;
-};
+	char *sval;
+	ASTNode *AST_ptr;
+}
 
 %token PROGRAM
 %token _BEGIN
@@ -76,8 +84,7 @@ vector <string> id_vec;
 %token <sval> IDENTIFIER
 
 %type <sval> id str var_type
-%type <AST_ptr> addop mulop primary postfix_expr assign_expr factor factor_prefix expr_prefix expr call_expr expr_list expr_list_tail
-
+%type <AST_ptr> primary postfix_expr call_expr expr_list expr_list_tail addop mulop assign_expr factor factor_prefix expr_prefix expr
 %%
 
 program:
@@ -178,13 +185,13 @@ base_stmt:
 	;
 
 assign_stmt:
-	assign_expr ';' {/*generate IR code*/ printAST($1); cout << endl}
+	assign_expr ';' {/*generate IR code*/ cout << "printing an AST" << endl; printAST($1); cout << endl; /*destroy_AST($1)*/}
 	;
 assign_expr:
-	id ASSIGN expr {map <string, wrapper>  m = symbol_table["GLOBAL"]; 
+	id ASSIGN expr {map <string, wrapper>  m = symbol_table["GLOBAL"];
 			string key = $1;
-			VarNode n = VarNode(key, m[key].vals[0]);
-			 $$ = new OpNode("=", &n, $3)}
+			VarNode * n = new VarNode(key, m[key].vals[0]);
+			 $$ = new OpNode("=", n, $3)}
 	;
 read_stmt:
 	READ '(' id_list ')' ';'
@@ -197,17 +204,17 @@ return_stmt:
 	;
 
 expr:
-	expr_prefix factor {$1->setRight($2)}
+	expr_prefix factor {if ($1 != NULL) {$1->right = $2; $$ = $1;} else $$ = $2}
 	;
 expr_prefix:
-	expr_prefix factor addop {if ($1 != NULL) {$1->setRight($3);} $3->setLeft($2); $$ = $3}
+	expr_prefix factor addop {if ($1 != NULL) {$1->right = $3;} $3->left = $2; $$ = $3}
 	| {$$ = NULL}
 	;
 factor:
-	factor_prefix postfix_expr {$1->setRight($2)}
+	factor_prefix postfix_expr {if ($1 != NULL) {$1->right = $2; $$ = $1;} else $$ = $2}
 	;
 factor_prefix:
-	factor_prefix postfix_expr mulop {if ($1 != NULL) {$1->setRight($3);} $3->setLeft($2); $$ = $3} 
+	factor_prefix postfix_expr mulop {if ($1 != NULL) {$1->right = $3;} $3->left = $2; $$ = $3} 
 	| {$$ = NULL}
 	;
 postfix_expr:
@@ -338,12 +345,37 @@ void yyerror(const char *s)
 	exit(line_num);
 }
 
-void printAST(OpNode * n)
+void printAST(ASTNode * n)
 {
 	if (n != NULL)
 	{
 		printAST(n->left);
 		printAST(n->right);
 		cout << n->value() << " ";
+		/*ss.str("");
+		switch (n->value())
+		{
+			case "+": break;
+			case "-": break;
+			case "*": break;
+			case "/": break;
+			case "=": break;
+			default: 
+				if (n->type() == "INT")
+					ss << STOREI << " " << n->val() << " $T" << ++reg_cnt;
+				if (n->type() == "FLOAT")
+					ss << STOREF << " " << n->val() << " $T" << ++reg_cnt;
+
+		}*/
 	}
 }
+
+/*void destroy_AST(ASTNode * n)
+{
+	if (n != NULL)
+	{
+		destroy_AST(n->left);
+		destroy_AST(n->right);
+		delete n;
+	}
+}*/
