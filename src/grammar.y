@@ -45,7 +45,7 @@ int reg_cnt = 0;
 {
 	#include "./src/AST.h"
 	void printAST(ASTNode * n);
-	//void destroy_AST(ASTNode * n)
+	void destroy_AST(ASTNode * n);
 }
 
 %union
@@ -185,7 +185,7 @@ base_stmt:
 	;
 
 assign_stmt:
-	assign_expr ';' {/*generate IR code*/ cout << "printing an AST" << endl; printAST($1); cout << endl; /*destroy_AST($1)*/}
+	assign_expr ';' {/*generate IR code*/ cout << "printing an AST" << endl; printAST($1); cout << endl; destroy_AST($1)}
 	;
 assign_expr:
 	id ASSIGN expr {map <string, wrapper>  m = symbol_table["GLOBAL"];
@@ -370,7 +370,7 @@ void printAST(ASTNode * n)
 	}
 }
 
-/*void destroy_AST(ASTNode * n)
+void destroy_AST(ASTNode * n)
 {
 	if (n != NULL)
 	{
@@ -378,4 +378,4 @@ void printAST(ASTNode * n)
 		destroy_AST(n->right);
 		delete n;
 	}
-}*/
+}
