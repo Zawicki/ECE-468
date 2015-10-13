@@ -33,7 +33,7 @@ map <string, map<string, wrapper> > symbol_table;
 
 int block_cnt = 0;
 
-stringstream ss;
+stringstream ss, IR;
 
 vector <string> id_vec;
 
@@ -44,7 +44,7 @@ int reg_cnt = 0;
 %code requires
 {
 	#include "./src/AST.h"
-	void printAST(ASTNode * n);
+	void makeIR(ASTNode * n);
 	void destroy_AST(ASTNode * n);
 }
 
@@ -185,7 +185,7 @@ base_stmt:
 	;
 
 assign_stmt:
-	assign_expr ';' {/*generate IR code*/ cout << "printing an AST" << endl; printAST($1); cout << endl; destroy_AST($1)}
+	assign_expr ';' {/*generate IR code*/ makeIR($1); destroy_AST($1)}
 	;
 assign_expr:
 	id ASSIGN expr {map <string, wrapper>  m = symbol_table["GLOBAL"];
@@ -194,10 +194,27 @@ assign_expr:
 			 $$ = new OpNode("=", n, $3)}
 	;
 read_stmt:
-	READ '(' id_list ')' ';'
+	READ '(' id_list ')' ';' {for (vector <string>::reverse_iterator it = id_vec.rbegin(); it != id_vec.rend(); ++it)
+				{
+					map <string, wrapper> m = symbol_table["GLOBAL"];
+					if (m[*it].vals[0] == "INT")
+						IR << "READI " << *it << endl;
+					else
+						IR << "READF " << *it << endl;
+				}
+				id_vec.clear()}
+
 	;
 write_stmt:
-	WRITE '(' id_list ')' ';'
+	WRITE '(' id_list ')' ';' {for (vector <string>::reverse_iterator it = id_vec.rbegin(); it != id_vec.rend(); ++it)
+				{
+					map <string, wrapper> m = symbol_table["GLOBAL"];
+					if (m[*it].vals[0] == "INT")
+						IR << "WRITEI " << *it << endl;
+					else
+						IR << "WRITEF " << *it << endl;
+				}
+				id_vec.clear()}
 	;
 return_stmt:
 	RETURN expr ';'
@@ -292,7 +309,7 @@ int main(int argc, char * argv[])
 	FILE * fp = fopen(in_file, "r");
 	if (!fp)
 	{
-		cout << "Please provide a single file to compile. " << in_file << endl;
+		cout << "Could not open file " << in_file << endl;
 		return -1;
 	}
 	yyin = fp;
@@ -323,6 +340,8 @@ int main(int argc, char * argv[])
 		}
 	}*/
 
+	cout << IR.str();
+
 	return 0;
 }
 
@@ -345,28 +364,58 @@ void yyerror(const char *s)
 	exit(line_num);
 }
 
-void printAST(ASTNode * n)
+void makeIR(ASTNode * n)
 {
 	if (n != NULL)
 	{
-		printAST(n->left);
-		printAST(n->right);
-		cout << n->value() << " ";
-		/*ss.str("");
-		switch (n->value())
+		makeIR(n->left);
+		makeIR(n->right);
+		switch (n->value()[0])
 		{
-			case "+": break;
-			case "-": break;
-			case "*": break;
-			case "/": break;
-			case "=": break;
-			default: 
-				if (n->type() == "INT")
-					ss << STOREI << " " << n->val() << " $T" << ++reg_cnt;
-				if (n->type() == "FLOAT")
-					ss << STOREF << " " << n->val() << " $T" << ++reg_cnt;
-
-		}*/
+			case '+':
+				if (n->right->type() == "INT")
+					IR << "ADDI $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
+				if (n->right->type() == "FLOAT")
+					IR << "ADDF $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
+				n->reg = reg_cnt;
+				break;
+			case '-':
+				if (n->right->type() == "INT")
+					IR << "SUBI $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
+				if (n->right->type() == "FLOAT")
+					IR << "SUBF $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
+				n->reg = reg_cnt;
+				break;
+			case '*':
+				if (n->right->type() == "INT")
+					IR << "MULTI $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
+				if (n->right->type() == "FLOAT")
+					IR << "MULTF $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
+				n->reg = reg_cnt;
+				break;
+			case '/': 
+				if (n->right->type() == "INT")
+					IR <<"DIVI $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
+				if (n->right->type() == "FLOAT")
+					IR << "DIVF $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
+				n->reg = reg_cnt;
+				break;
+			case '=': 
+				if (n->left->type() == "INT")
+					IR << "STOREI $T" << n->right->reg << " " << n->left->value() << endl;
+				if (n->left->type() == "FLOAT")
+					IR << "STOREF $T" << n->right->reg << " " << n->left->value() << endl;
+				break;
+			default:
+				if (isdigit(n->value()[0]))
+				{
+					if (n->type() == "INT")
+						IR << "STOREI " << n->value() << " $T" << ++reg_cnt << endl;
+					if (n->type() == "FLOAT")
+						IR << "STOREF " << n->value() << " $T" << ++reg_cnt << endl;
+					n->reg = reg_cnt;
+				}
+		}
 	}
 }
 

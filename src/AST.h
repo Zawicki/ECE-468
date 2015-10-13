@@ -3,7 +3,7 @@ using namespace std;
 class ASTNode 
 {
 	public:
-		string reg;
+		int reg;
 		ASTNode * left;
 		ASTNode * right;
 
