@@ -3,23 +3,26 @@ using namespace std;
 class ASTNode 
 {
 	public:
-		int reg;
+		string reg;
 		ASTNode * left;
 		ASTNode * right;
 
 		virtual string value() = 0;
-		virtual string type() = 0;
+		virtual string data_type() = 0;
+		virtual string node_type() = 0;
 };
 
-class ConstNode : public ASTNode
+class Node : public ASTNode
 {
 	string val;
-	string typ;
+	string d_type;
+	string n_type;
 	public:
-		ConstNode(string value, string type)
+		Node(string value, string dt, string nt)
 		{
 			val = value;
-			typ = type;
+			d_type = dt;
+			n_type = nt;
 			this->left = NULL;
 			this->right = NULL;
 		}
@@ -29,34 +32,14 @@ class ConstNode : public ASTNode
 			return val;
 		}
 
-		string type()
+		string data_type()
 		{
-			return typ;
-		}
-};
-
-class VarNode : public ASTNode
-{
-	string val;
-	string typ;
-	
-	public:
-		VarNode(string value, string type)
-		{
-			val = value;
-			typ = type;
-			this->left = NULL;
-			this->right = NULL;	
+			return d_type;
 		}
 
-		string value()
+		string node_type()
 		{
-			return val;
-		}
-
-		string type()
-		{
-			return typ;
+			return n_type;
 		}
 };
 
@@ -94,9 +77,14 @@ class OpNode : public ASTNode
 			return op;
 		}
 		
-		string type()
+		string data_type()
 		{
 			return "";
+		}
+
+		string node_type()
+		{
+			return "op";
 		}
 };
 

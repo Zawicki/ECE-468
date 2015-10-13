@@ -5,8 +5,6 @@
 #include <stack>
 #include <sstream>
 #include <vector>
-#include <string>
-//#include "./src/AST.h"
 
 using namespace std;
 
@@ -44,6 +42,7 @@ int reg_cnt = 0;
 %code requires
 {
 	#include "./src/AST.h"
+	#include <string>
 	void makeIR(ASTNode * n);
 	void destroy_AST(ASTNode * n);
 }
@@ -190,7 +189,7 @@ assign_stmt:
 assign_expr:
 	id ASSIGN expr {map <string, wrapper>  m = symbol_table["GLOBAL"];
 			string key = $1;
-			VarNode * n = new VarNode(key, m[key].vals[0]);
+			Node * n = new Node(key, m[key].vals[0], "VAR");
 			 $$ = new OpNode("=", n, $3)}
 	;
 read_stmt:
@@ -249,10 +248,10 @@ expr_list_tail:
 	| {$$ = NULL}
 	;
 primary:
-	'(' expr ')' {$$ = $2} 
-	| id {map <string, wrapper> m = symbol_table["GLOBAL"]; string key = $1; $$ = new VarNode(key, m[key].vals[0])}
-	| INTLITERAL {$$ = new ConstNode($1, "INT")}
-	| FLOATLITERAL {$$ = new ConstNode($1, "FLOAT")}
+	'(' expr ')' {$$ = $2}
+	| id {map <string, wrapper> m = symbol_table["GLOBAL"]; string key = $1; $$ = new Node(key, m[key].vals[0], "VAR")}
+	| INTLITERAL {$$ = new Node($1, "INT", "CONST")}
+	| FLOATLITERAL {$$ = new Node($1, "FLOAT", "CONST")}
 	;
 addop:
 	'+' {$$ = new OpNode("+")}
@@ -370,51 +369,59 @@ void makeIR(ASTNode * n)
 	{
 		makeIR(n->left);
 		makeIR(n->right);
+		ss.str("");
 		switch (n->value()[0])
 		{
 			case '+':
-				if (n->right->type() == "INT")
-					IR << "ADDI $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
-				if (n->right->type() == "FLOAT")
-					IR << "ADDF $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
-				n->reg = reg_cnt;
+				if (n->right->data_type() == "INT")
+					IR << "ADDI " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
+				if (n->right->data_type() == "FLOAT")
+					IR << "ADDF " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
+				ss << "$T" << reg_cnt;
+				n->reg = ss.str();
 				break;
 			case '-':
-				if (n->right->type() == "INT")
-					IR << "SUBI $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
-				if (n->right->type() == "FLOAT")
-					IR << "SUBF $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
-				n->reg = reg_cnt;
+				if (n->right->data_type() == "INT")
+					IR << "SUBI " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
+				if (n->right->data_type() == "FLOAT")
+					IR << "SUBF " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
+				ss << "$T" << reg_cnt;
+				n->reg = ss.str();
 				break;
 			case '*':
-				if (n->right->type() == "INT")
-					IR << "MULTI $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
-				if (n->right->type() == "FLOAT")
-					IR << "MULTF $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
-				n->reg = reg_cnt;
+				if (n->right->data_type() == "INT")
+					IR << "MULTI " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
+				if (n->right->data_type() == "FLOAT")
+					IR << "MULTF " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
+				ss << "$T" << reg_cnt;
+				n->reg = ss.str();
 				break;
 			case '/': 
-				if (n->right->type() == "INT")
-					IR <<"DIVI $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
-				if (n->right->type() == "FLOAT")
-					IR << "DIVF $T" <<  n->left->reg << " $T" << n->right->reg << " $T" << ++reg_cnt << endl;
-				n->reg = reg_cnt;
+				if (n->right->data_type() == "INT")
+					IR <<"DIVI " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
+				if (n->right->data_type() == "FLOAT")
+					IR << "DIVF " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
+				ss << "$T" << reg_cnt;
+				n->reg = ss.str();
 				break;
 			case '=': 
-				if (n->left->type() == "INT")
-					IR << "STOREI $T" << n->right->reg << " " << n->left->value() << endl;
-				if (n->left->type() == "FLOAT")
-					IR << "STOREF $T" << n->right->reg << " " << n->left->value() << endl;
+				if (n->left->data_type() == "INT")
+					IR << "STOREI " << n->right->reg << " " << n->left->value() << endl;
+				if (n->left->data_type() == "FLOAT")
+					IR << "STOREF " << n->right->reg << " " << n->left->value() << endl;
 				break;
 			default:
-				if (isdigit(n->value()[0]))
+				if (n->node_type() == "CONST")
 				{
-					if (n->type() == "INT")
+					if (n->data_type() == "INT")
 						IR << "STOREI " << n->value() << " $T" << ++reg_cnt << endl;
-					if (n->type() == "FLOAT")
+					if (n->data_type() == "FLOAT")
 						IR << "STOREF " << n->value() << " $T" << ++reg_cnt << endl;
-					n->reg = reg_cnt;
+					ss << "$T" << reg_cnt;
+					n->reg = ss.str();
 				}
+				else
+					n->reg = n->value();
 		}
 	}
 }
