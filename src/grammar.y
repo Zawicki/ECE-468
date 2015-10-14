@@ -5,6 +5,7 @@
 #include <stack>
 #include <sstream>
 #include <vector>
+#include <iterator>
 
 using namespace std;
 
@@ -33,7 +34,7 @@ int block_cnt = 0;
 
 stringstream ss, IR;
 
-vector <string> id_vec;
+vector <string> id_vec, vars;
 
 int reg_cnt = 0;
 
@@ -125,6 +126,7 @@ var_decl:
 						string tmp = *it;
 						yyerror(tmp.c_str());
 					}
+					vars.push_back(*it);
 				}
 				id_vec.clear()}
 	;
@@ -338,7 +340,33 @@ int main(int argc, char * argv[])
 		}
 	}*/
 
-	cout << IR.str();
+	stringstream tiny, adr;
+	string line;
+	reg_cnt = -1;
+	for (vector <string>::iterator it = vars.begin(); it != vars.end(); ++it)
+	{
+		tiny << "var " << *it << endl;
+	}
+
+	while (getline(IR, line))
+	{
+		adr << ";" << line << endl;
+		istringstream buf(line);
+		istream_iterator<string> beg(buf), end;
+		vector <string> tokens(beg, end);
+
+		if (tokens[0] == "STOREI" || tokens[0] == "STOREF")
+		{
+			if (tokens[2][0] == '$')
+				tiny << "move " << tokens[1] << " r" << ++reg_cnt << endl;
+			else
+				tiny << "move r" << reg_cnt << " " <<  tokens[2] << endl;
+		}
+		else if (tokens[0] == "ADDI")
+			tiny << 
+	}
+
+	cout << adr.str() << tiny.str();
 
 	return 0;
 }
