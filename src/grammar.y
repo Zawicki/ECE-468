@@ -370,6 +370,8 @@ void makeIR(ASTNode * n)
 		makeIR(n->right);
 		//cout << n->value() << " ";
 		ss.str("");
+		if (n->node_type() == "op")
+			n->d_type = n->left->data_type();
 		switch (n->value()[0])
 		{
 			case '+':

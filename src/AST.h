@@ -4,6 +4,9 @@ class ASTNode
 {
 	public:
 		string reg;
+		string val;
+		string d_type;
+		string n_type;
 		ASTNode * left;
 		ASTNode * right;
 
@@ -14,9 +17,7 @@ class ASTNode
 
 class Node : public ASTNode
 {
-	string val;
-	string d_type;
-	string n_type;
+
 	public:
 		Node(string value, string dt, string nt)
 		{
@@ -45,46 +46,41 @@ class Node : public ASTNode
 
 class OpNode : public ASTNode
 {
-	string op;
 
 	public:
-		OpNode(string opr)
+		OpNode(string op)
 		{
-			op = opr;
+			n_type = "op";
+			val = op;
 			this->left = NULL;
 			this->right = NULL;
 		}
 
-		OpNode(string opr, ASTNode * left, ASTNode * right)
+		OpNode(string op, ASTNode * left, ASTNode * right)
 		{
-			op = opr;
+			n_type = "op";
+			val = op;
 			this->left = left;
 			this->right = right;
-		}
-
-		void setLeft(ASTNode * left)
-		{
-			this->left = left;
-		}
-
-		void setRight(ASTNode * right)
-		{
-			this->right = right;
+			if (left->data_type() == "FLOAT")
+				d_type = "FLOAT";
+			else
+				d_type = "INT";
 		}
 
 		string value()
 		{ 
-			return op;
+			return val;
 		}
 		
 		string data_type()
 		{
-			return "";
+			return d_type;
 		}
 
 		string node_type()
 		{
-			return "op";
+			return n_type;
 		}
 };
 
