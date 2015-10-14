@@ -184,7 +184,7 @@ base_stmt:
 	;
 
 assign_stmt:
-	assign_expr ';' {/*generate IR code*/ makeIR($1); destroy_AST($1)}
+	assign_expr ';' {makeIR($1); /*cout << endl;*/ destroy_AST($1)}
 	;
 assign_expr:
 	id ASSIGN expr {map <string, wrapper>  m = symbol_table["GLOBAL"];
@@ -223,14 +223,14 @@ expr:
 	expr_prefix factor {if ($1 != NULL) {$1->right = $2; $$ = $1;} else $$ = $2}
 	;
 expr_prefix:
-	expr_prefix factor addop {if ($1 != NULL) {$1->right = $3;} $3->left = $2; $$ = $3}
+	expr_prefix factor addop {if ($1 != NULL) {$3->left = $1; $1->right = $2;} else {$3->left = $2;} $$ = $3}
 	| {$$ = NULL}
 	;
 factor:
 	factor_prefix postfix_expr {if ($1 != NULL) {$1->right = $2; $$ = $1;} else $$ = $2}
 	;
 factor_prefix:
-	factor_prefix postfix_expr mulop {if ($1 != NULL) {$1->right = $3;} $3->left = $2; $$ = $3} 
+	factor_prefix postfix_expr mulop {if ($1 != NULL) {$3->left = $1; $2->right = $2;} else {$3->left = $2;} $$ = $3} 
 	| {$$ = NULL}
 	;
 postfix_expr:
@@ -320,7 +320,6 @@ int main(int argc, char * argv[])
 	fclose(fp);
 
 	//Uncomment below to print off the symbol table directly from the maps
-
 	/*cout << endl << "-------------------------------------------------" << endl;
 	cout << "Iterating through the symbol table" << endl << endl;
 	
@@ -369,6 +368,7 @@ void makeIR(ASTNode * n)
 	{
 		makeIR(n->left);
 		makeIR(n->right);
+		//cout << n->value() << " ";
 		ss.str("");
 		switch (n->value()[0])
 		{
