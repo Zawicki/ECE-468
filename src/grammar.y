@@ -1,4 +1,4 @@
-%code top{
+%{
 #include <cstdio>
 #include <iostream>
 #include <map>
@@ -6,6 +6,7 @@
 #include <sstream>
 #include <vector>
 #include <iterator>
+#include <string>
 
 using namespace std;
 
@@ -20,7 +21,7 @@ void add_symbol_table();
 
 struct wrapper 
 { 
-	string vals[2]; 
+	string vals[2];
 }w, p;
 
 stack <string> scope;
@@ -32,20 +33,23 @@ map <string, map<string, wrapper> > symbol_table;
 
 int block_cnt = 0;
 
-stringstream ss, IR;
+stringstream ss;
 
-vector <string> id_vec, vars;
+vector <string> id_vec;
 
 int reg_cnt = 0;
-
-}
+%}
 
 %code requires
 {
 	#include "./src/AST.h"
-	#include <string>
 	void makeIR(ASTNode * n);
 	void destroy_AST(ASTNode * n);
+}
+
+%code 
+{
+vector <IRNode> IR;
 }
 
 %union
@@ -126,7 +130,6 @@ var_decl:
 						string tmp = *it;
 						yyerror(tmp.c_str());
 					}
-					vars.push_back(*it);
 				}
 				id_vec.clear()}
 	;
@@ -191,7 +194,7 @@ assign_stmt:
 assign_expr:
 	id ASSIGN expr {map <string, wrapper>  m = symbol_table["GLOBAL"];
 			string key = $1;
-			Node * n = new Node(key, m[key].vals[0], "VAR");
+			VarNode * n = new VarNode(key, m[key].vals[0]);
 			 $$ = new OpNode("=", n, $3)}
 	;
 read_stmt:
@@ -199,9 +202,9 @@ read_stmt:
 				{
 					map <string, wrapper> m = symbol_table["GLOBAL"];
 					if (m[*it].vals[0] == "INT")
-						IR << "READI " << *it << endl;
+						IR.push_back(IRNode("READI", "", "", *it));
 					else
-						IR << "READF " << *it << endl;
+						IR.push_back(IRNode("READF", "", "", *it));
 				}
 				id_vec.clear()}
 
@@ -211,9 +214,9 @@ write_stmt:
 				{
 					map <string, wrapper> m = symbol_table["GLOBAL"];
 					if (m[*it].vals[0] == "INT")
-						IR << "WRITEI " << *it << endl;
+						IR.push_back(IRNode("WRITEI", "", "", *it));
 					else
-						IR << "WRITEF " << *it << endl;
+						IR.push_back(IRNode("WRITEF", "", "", *it));
 				}
 				id_vec.clear()}
 	;
@@ -251,9 +254,9 @@ expr_list_tail:
 	;
 primary:
 	'(' expr ')' {$$ = $2}
-	| id {map <string, wrapper> m = symbol_table["GLOBAL"]; string key = $1; $$ = new Node(key, m[key].vals[0], "VAR")}
-	| INTLITERAL {$$ = new Node($1, "INT", "CONST")}
-	| FLOATLITERAL {$$ = new Node($1, "FLOAT", "CONST")}
+	| id {map <string, wrapper> m = symbol_table["GLOBAL"]; string key = $1; $$ = new VarNode(key, m[key].vals[0])}
+	| INTLITERAL {$$ = new ConstIntNode($1)}
+	| FLOATLITERAL {$$ = new ConstFloatNode($1)}
 	;
 addop:
 	'+' {$$ = new OpNode("+")}
@@ -340,33 +343,11 @@ int main(int argc, char * argv[])
 		}
 	}*/
 
-	stringstream tiny, adr;
-	string line;
-	reg_cnt = -1;
-	for (vector <string>::iterator it = vars.begin(); it != vars.end(); ++it)
+
+	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it)
 	{
-		tiny << "var " << *it << endl;
+		it->print_Node();
 	}
-
-	while (getline(IR, line))
-	{
-		adr << ";" << line << endl;
-		istringstream buf(line);
-		istream_iterator<string> beg(buf), end;
-		vector <string> tokens(beg, end);
-
-		if (tokens[0] == "STOREI" || tokens[0] == "STOREF")
-		{
-			if (tokens[2][0] == '$')
-				tiny << "move " << tokens[1] << " r" << ++reg_cnt << endl;
-			else
-				tiny << "move r" << reg_cnt << " " <<  tokens[2] << endl;
-		}
-		else if (tokens[0] == "ADDI")
-			tiny << 
-	}
-
-	cout << adr.str() << tiny.str();
 
 	return 0;
 }
@@ -396,63 +377,25 @@ void makeIR(ASTNode * n)
 	{
 		makeIR(n->left);
 		makeIR(n->right);
-		//cout << n->value() << " ";
+		//cout << n->val << " ";
 		ss.str("");
-		if (n->node_type() == "op")
-			n->d_type = n->left->data_type();
-		switch (n->value()[0])
+		if (n->node_type == "OP")
 		{
-			case '+':
-				if (n->right->data_type() == "INT")
-					IR << "ADDI " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
-				if (n->right->data_type() == "FLOAT")
-					IR << "ADDF " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
-				ss << "$T" << reg_cnt;
+			n->data_type = n->left->data_type;
+			if (n->val != "=")
+			{
+				ss << "$T" << ++reg_cnt;
 				n->reg = ss.str();
-				break;
-			case '-':
-				if (n->right->data_type() == "INT")
-					IR << "SUBI " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
-				if (n->right->data_type() == "FLOAT")
-					IR << "SUBF " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
-				ss << "$T" << reg_cnt;
-				n->reg = ss.str();
-				break;
-			case '*':
-				if (n->right->data_type() == "INT")
-					IR << "MULTI " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
-				if (n->right->data_type() == "FLOAT")
-					IR << "MULTF " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
-				ss << "$T" << reg_cnt;
-				n->reg = ss.str();
-				break;
-			case '/': 
-				if (n->right->data_type() == "INT")
-					IR <<"DIVI " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
-				if (n->right->data_type() == "FLOAT")
-					IR << "DIVF " <<  n->left->reg << " " << n->right->reg << " $T" << ++reg_cnt << endl;
-				ss << "$T" << reg_cnt;
-				n->reg = ss.str();
-				break;
-			case '=': 
-				if (n->left->data_type() == "INT")
-					IR << "STOREI " << n->right->reg << " " << n->left->value() << endl;
-				if (n->left->data_type() == "FLOAT")
-					IR << "STOREF " << n->right->reg << " " << n->left->value() << endl;
-				break;
-			default:
-				if (n->node_type() == "CONST")
-				{
-					if (n->data_type() == "INT")
-						IR << "STOREI " << n->value() << " $T" << ++reg_cnt << endl;
-					if (n->data_type() == "FLOAT")
-						IR << "STOREF " << n->value() << " $T" << ++reg_cnt << endl;
-					ss << "$T" << reg_cnt;
-					n->reg = ss.str();
-				}
-				else
-					n->reg = n->value();
+			}
+			else
+				n->reg = n->left->reg;
 		}
+		if (n->node_type == "CONST")
+		{
+			ss << "$T" << ++reg_cnt;
+			n->reg = ss.str();
+		}
+		IR.push_back(n->gen_IR());
 	}
 }
 

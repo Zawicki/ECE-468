@@ -1,47 +1,107 @@
+#include <iostream>
 using namespace std;
+
+class IRNode
+{
+	public:
+		string opcode;
+		string op1;
+		string op2;
+		string result;
+
+		IRNode(string op, string o1, string o2, string r)
+		{
+			opcode = op;
+			op1 = o1;
+			op2 = o2;
+			result = r;
+		}	
+
+		void print_Node()
+		{
+			if (opcode != "")
+			{
+				cout << opcode;
+				if (op1 != "")
+					cout << " " << op1;
+				if (op2 != "")
+					cout << " " << op2;
+				cout << " " << result << endl; 
+			}
+		}
+};
 
 class ASTNode 
 {
 	public:
-		string reg;
-		string val;
-		string d_type;
-		string n_type;
-		ASTNode * left;
-		ASTNode * right;
+		string val; // The value of the node
+		string data_type; // The data type of the node
+		string node_type; // The type of node
+		string reg; // The register that the nodes value is stored in
+		ASTNode * left; // The left child of the node
+		ASTNode * right; // The righ child of the node
 
-		virtual string value() = 0;
-		virtual string data_type() = 0;
-		virtual string node_type() = 0;
+		virtual IRNode gen_IR() = 0;
 };
 
-class Node : public ASTNode
+class ConstIntNode : public ASTNode
 {
 
 	public:
-		Node(string value, string dt, string nt)
+		ConstIntNode(string value)
 		{
 			val = value;
-			d_type = dt;
-			n_type = nt;
+			data_type = "INT";
+			node_type = "CONST";
 			this->left = NULL;
 			this->right = NULL;
 		}
 
-		string value()
+		IRNode gen_IR()
 		{
-			return val;
+			return IRNode("STOREI", val, "", reg);
+		}
+};
+
+class ConstFloatNode : public ASTNode
+{
+
+	public:
+		ConstFloatNode(string value)
+		{
+			val = value;
+			data_type = "FLOAT";
+			node_type = "CONST";
+			this->left = NULL;
+			this->right = NULL;
 		}
 
-		string data_type()
+		IRNode gen_IR()
 		{
-			return d_type;
+			return IRNode("STOREF", val, "", reg);
 		}
 
-		string node_type()
+};
+
+class VarNode : public ASTNode
+{
+
+	public:
+		VarNode(string value, string dt)
 		{
-			return n_type;
+			val = value;
+			reg = value;
+			data_type = dt;
+			node_type = "VAR";
+			this->left = NULL;
+			this->right = NULL;
 		}
+
+		IRNode gen_IR()
+		{
+			return IRNode("","","","");
+		}
+
 };
 
 class OpNode : public ASTNode
@@ -50,7 +110,7 @@ class OpNode : public ASTNode
 	public:
 		OpNode(string op)
 		{
-			n_type = "op";
+			node_type = "OP";
 			val = op;
 			this->left = NULL;
 			this->right = NULL;
@@ -58,29 +118,53 @@ class OpNode : public ASTNode
 
 		OpNode(string op, ASTNode * left, ASTNode * right)
 		{
-			n_type = "op";
+			node_type = "OP";
 			val = op;
 			this->left = left;
 			this->right = right;
-			if (left->data_type() == "FLOAT")
-				d_type = "FLOAT";
-			else
-				d_type = "INT";
 		}
 
-		string value()
-		{ 
-			return val;
-		}
-		
-		string data_type()
+		IRNode gen_IR()
 		{
-			return d_type;
+			if (val == "+")
+			{
+				if (data_type == "INT")
+					return IRNode("ADDI", this->left->reg, this->right->reg, reg);
+				else
+					return IRNode("ADDF", this->left->reg, this->right->reg, reg);
+			}
+			else if (val == "-")
+			{
+				if (data_type == "INT")
+					return IRNode("SUBI", this->left->reg, this->right->reg, reg);
+				else
+					return IRNode("SUBF", this->left->reg, this->right->reg, reg);
+
+			}
+			else if (val == "*")
+			{
+				if (data_type == "INT")
+					return IRNode("MULTI", this->left->reg, this->right->reg, reg);
+				else
+					return IRNode("MULTF", this->left->reg, this->right->reg, reg);
+
+			}
+			else if (val == "/")
+			{
+				if (data_type == "INT")
+					return IRNode("DIVI", this->left->reg, this->right->reg, reg);
+				else
+					return IRNode("DIVF", this->left->reg, this->right->reg, reg);
+
+			}
+			else if (val == "=")
+			{
+				if (data_type == "INT")
+					return IRNode("STOREI", this->right->reg, "", reg);
+				else
+					return IRNode("STOREF", this->right->reg, "", reg);
+			}
 		}
 
-		string node_type()
-		{
-			return n_type;
-		}
 };
 
