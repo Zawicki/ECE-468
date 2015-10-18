@@ -18,7 +18,7 @@ extern int line_num;
 void yyerror(const char *s);
 void push_block();
 void add_symbol_table();
-void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * temp1, int * temp2, int * output_reg);
+void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * output_reg);
 
 struct wrapper 
 { 
@@ -39,6 +39,7 @@ stringstream ss;
 vector <string> id_vec, vars;
 
 int reg_cnt = 0;
+stack <int> regs;
 %}
 
 %code requires
@@ -359,8 +360,6 @@ int main(int argc, char * argv[])
 	}
 	
 	int curr_reg = 0;
-	int temp1 = 0;
-	int temp2 = 0;
 	int output_reg = 0;
 	string code, op1, op2, result;
 	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it)
@@ -381,11 +380,14 @@ int main(int argc, char * argv[])
 		else if (code == "STOREI" || code == "STOREF")
 		{
 			if (result[0] != '$') // storing into a variable
+			{
 				cout << "move r" << output_reg << " " << result << endl;
+				regs.pop();
+			}
 			else
 			{
 				cout << "move " << op1 << " r" << curr_reg << endl;
-				temp1 = curr_reg;
+				regs.push(curr_reg);
 				output_reg = curr_reg;
 				curr_reg++;
 			}
@@ -393,38 +395,38 @@ int main(int argc, char * argv[])
 		// Plus
 		else if (code == "ADDI")
 		{
-			assemble_math("addi", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
+			assemble_math("addi", op1, op2, &curr_reg, &output_reg);
 		}
 		else if (code == "ADDF")
 		{
-			assemble_math("addr", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
+			assemble_math("addr", op1, op2, &curr_reg, &output_reg);
 		}
 		// Sub
 		else if (code == "SUBI")
 		{
-			assemble_math("subi", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
+			assemble_math("subi", op1, op2, &curr_reg, &output_reg);
 		}
 		else if (code == "SUBF")
 		{
-			assemble_math("subi", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
+			assemble_math("subi", op1, op2, &curr_reg, &output_reg);
 		}
 		// Mult
 		else if (code == "MULTI")
 		{
-			assemble_math("muli", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
+			assemble_math("muli", op1, op2, &curr_reg, &output_reg);
 		}
 		else if (code == "MULTF")
 		{
-			assemble_math("mulr", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
+			assemble_math("mulr", op1, op2, &curr_reg, &output_reg);
 		}
 		// Div
 		else if (code == "DIVI")
 		{
-			assemble_math("divi", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
+			assemble_math("divi", op1, op2, &curr_reg, &output_reg);
 		}
 		else if (code == "DIVF")
 		{
-			assemble_math("divi", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
+			assemble_math("divi", op1, op2, &curr_reg, &output_reg);
 		}
 	}
 	cout << "sys halt";
@@ -458,7 +460,6 @@ void makeIR(ASTNode * n)
 	{
 		makeIR(n->left);
 		makeIR(n->right);
-		//cout << n->val << " ";
 		ss.str("");
 		if (n->node_type == "OP")
 		{
@@ -490,7 +491,41 @@ void destroy_AST(ASTNode * n)
 	}
 }
 
-void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * temp1, int * temp2, int * output_reg)
+void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * output_reg)
+{
+	if (op1[0] != '$') // op1 is a variable
+	{
+		cout << "move " << op1 << " r" << *curr_reg << endl;
+		regs.push(*curr_reg - 1);
+		*curr_reg = *curr_reg + 1;
+
+		if (op2[0] != '$') // op2 is a variable
+		{
+			cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+		}
+		else // op2 is a register
+		{
+			cout << opcode << " r" << regs.top() << " r" << *curr_reg - 1 << endl;
+			regs.pop();
+		}
+		*output_reg = *curr_reg - 1;
+	}
+	else // op1 is a register
+	{
+		if (op2[0] != '$') // op2 is a variable
+		{
+			cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			*output_reg = *curr_reg - 1;
+		}
+		else // op2 is a register
+		{
+			cout << opcode << " r" << *curr_reg - 1 << " r" << regs.top() << endl;
+			*output_reg = regs.top();
+		}
+	}	
+}
+
+/*void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * temp1, int * temp2, int * output_reg)
 {
 	if (op1[0] != '$') // op1 is a variable
 	{
@@ -522,4 +557,4 @@ void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * 
 			*output_reg = *temp2;
 		}
 	}	
-}
+}*/
