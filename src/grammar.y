@@ -35,7 +35,7 @@ int block_cnt = 0;
 
 stringstream ss;
 
-vector <string> id_vec;
+vector <string> id_vec, vars;
 
 int reg_cnt = 0;
 %}
@@ -130,6 +130,7 @@ var_decl:
 						string tmp = *it;
 						yyerror(tmp.c_str());
 					}
+					vars.push_back(*it);
 				}
 				id_vec.clear()}
 	;
@@ -343,11 +344,82 @@ int main(int argc, char * argv[])
 		}
 	}*/
 
-
+	cout << "IR code" << endl;
 	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it)
 	{
 		it->print_Node();
 	}
+	
+	cout << ";tiny code" << endl;
+
+	for (vector <string>::iterator it = vars.begin(); it != vars.end(); ++it)
+	{
+		cout << "var " << *it << endl;
+	}
+	
+	int curr_reg = 0;
+	int temp1 = 0
+	int temp2 = 0;
+	string code, op1, op2, result;
+	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it)
+	{
+		opcode = it->opcode;
+		op1 = it->op1;
+		op2 = it->op2;
+		result = it->result;
+
+		if (code == "WRITEI")
+		{
+			cout << "sys writei " << op1 << endl;
+		}
+		else if (code == "WRITEF")
+		{
+			cout << "sys writei " << op1 << endl;
+		}
+		else if (code == "STOREI" || code == "STOREF")
+		{
+			if (result[0] != '$') // storing into a variable
+				cout << "move " << " r" << curr_reg << " " << result << endl;
+			else
+			{
+				cout << "move " << op1 << " r" << curr_reg << endl;
+				temp1 = curr_reg;
+				curr_reg++;
+			}
+		}
+		else if (code == "ADDI")
+		{
+			if (op1[0] != '$') // op1 is a variable
+			{
+				cout << "move " << op1 << " r" << curr_reg << endl;
+				temp2 = temp1;
+				temp1 = curr_reg;
+				curr_reg++;
+
+				if (op2[0] != '$') // op2 is a variable
+				{
+					cout << "addi " << op2 << " r" << temp1 << endl;
+				}
+				else // op2 is a register
+				{
+					cout << "addi" << temp2 << " r" << temp1 << endl;
+				}
+			}
+			else // op1 is a register
+			{
+				if (op2[0] != '$') // op2 is a variable
+				{
+					cout << "addi " << op2 << " r" << temp1 << endl;
+				}
+				else // op2 is a register
+				{
+					cout << "addi" << temp1 << " r" << temp2 << endl;
+				}
+			}	
+		}
+	}
+	cout << "sys halt";
+
 
 	return 0;
 }

@@ -21,7 +21,7 @@ class IRNode
 		{
 			if (opcode != "")
 			{
-				cout << opcode;
+				cout << ";" << opcode;
 				if (op1 != "")
 					cout << " " << op1;
 				if (op2 != "")
