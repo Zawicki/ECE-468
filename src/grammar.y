@@ -387,7 +387,7 @@ int main(int argc, char * argv[])
 			else
 			{
 				cout << "move " << op1 << " r" << curr_reg << endl;
-				regs.push(curr_reg);
+				regs.push(curr_reg - 2);
 				output_reg = curr_reg;
 				curr_reg++;
 			}
@@ -522,7 +522,7 @@ void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * 
 			cout << opcode << " r" << *curr_reg - 1 << " r" << regs.top() << endl;
 			*output_reg = regs.top();
 		}
-	}	
+	}
 }
 
 /*void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * temp1, int * temp2, int * output_reg)
