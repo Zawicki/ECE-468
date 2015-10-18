@@ -18,6 +18,7 @@ extern int line_num;
 void yyerror(const char *s);
 void push_block();
 void add_symbol_table();
+void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * temp1, int * temp2, int * output_reg);
 
 struct wrapper 
 { 
@@ -360,7 +361,7 @@ int main(int argc, char * argv[])
 	int curr_reg = 0;
 	int temp1 = 0;
 	int temp2 = 0;
-	int temp3 = 0;
+	int output_reg = 0;
 	string code, op1, op2, result;
 	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it)
 	{
@@ -380,282 +381,50 @@ int main(int argc, char * argv[])
 		else if (code == "STOREI" || code == "STOREF")
 		{
 			if (result[0] != '$') // storing into a variable
-				cout << "move r" << temp3 << " " << result << endl;
+				cout << "move r" << output_reg << " " << result << endl;
 			else
 			{
 				cout << "move " << op1 << " r" << curr_reg << endl;
 				temp1 = curr_reg;
-				temp3 = curr_reg;
+				output_reg = curr_reg;
 				curr_reg++;
 			}
 		}
 		// Plus
 		else if (code == "ADDI")
 		{
-			if (op1[0] != '$') // op1 is a variable
-			{
-				cout << "move " << op1 << " r" << curr_reg << endl;
-				temp2 = temp1;
-				temp1 = curr_reg;
-				curr_reg++;
-
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "addi " << op2 << " r" << temp1 << endl;
-				}
-				else // op2 is a register
-				{
-					cout << "addi r" << temp2 << " r" << temp1 << endl;
-				}
-				temp3 = temp1;
-			}
-			else // op1 is a register
-			{
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "addi " << op2 << " r" << temp1 << endl;
-					temp3 = temp1;
-				}
-				else // op2 is a register
-				{
-					cout << "addi r" << temp1 << " r" << temp2 << endl;
-					temp3 = temp2;
-				}
-			}	
+			assemble_math("addi", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
 		}
 		else if (code == "ADDF")
 		{
-			if (op1[0] != '$') // op1 is a variable
-			{
-				cout << "move " << op1 << " r" << curr_reg << endl;
-				temp2 = temp1;
-				temp1 = curr_reg;
-				curr_reg++;
-
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "addr " << op2 << " r" << temp1 << endl;
-				}
-				else // op2 is a register
-				{
-					cout << "addr r" << temp2 << " r" << temp1 << endl;
-				}
-				temp3 = temp1;
-			}
-			else // op1 is a register
-			{
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "addr " << op2 << " r" << temp1 << endl;
-					temp3 = temp1;
-				}
-				else // op2 is a register
-				{
-					cout << "addr r" << temp1 << " r" << temp2 << endl;
-					temp3 = temp2;
-				}
-			}	
+			assemble_math("addr", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
 		}
 		// Sub
 		else if (code == "SUBI")
 		{
-			if (op1[0] != '$') // op1 is a variable
-			{
-				cout << "move " << op1 << " r" << curr_reg << endl;
-				temp2 = temp1;
-				temp1 = curr_reg;
-				curr_reg++;
-
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "subi " << op2 << " r" << temp1 << endl;
-				}
-				else // op2 is a register
-				{
-					cout << "subi r" << temp2 << " r" << temp1 << endl;
-				}
-				temp3 = temp1;
-			}
-			else // op1 is a register
-			{
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "subi " << op2 << " r" << temp1 << endl;
-					temp3 = temp1;
-				}
-				else // op2 is a register
-				{
-					cout << "subi r" << temp1 << " r" << temp2 << endl;
-					temp3 = temp2;
-				}
-			}	
+			assemble_math("subi", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
 		}
 		else if (code == "SUBF")
 		{
-			if (op1[0] != '$') // op1 is a variable
-			{
-				cout << "move " << op1 << " r" << curr_reg << endl;
-				temp2 = temp1;
-				temp1 = curr_reg;
-				curr_reg++;
-
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "subr " << op2 << " r" << temp1 << endl;
-				}
-				else // op2 is a register
-				{
-					cout << "subr r" << temp2 << " r" << temp1 << endl;
-				}
-				temp3 = temp1;
-			}
-			else // op1 is a register
-			{
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "subr " << op2 << " r" << temp1 << endl;
-					temp3 = temp1;
-				}
-				else // op2 is a register
-				{
-					cout << "subr r" << temp1 << " r" << temp2 << endl;
-					temp3 = temp2;
-				}
-			}	
+			assemble_math("subi", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
 		}
 		// Mult
 		else if (code == "MULTI")
 		{
-			if (op1[0] != '$') // op1 is a variable
-			{
-				cout << "move " << op1 << " r" << curr_reg << endl;
-				temp2 = temp1;
-				temp1 = curr_reg;
-				curr_reg++;
-
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "muli " << op2 << " r" << temp1 << endl;
-				}
-				else // op2 is a register
-				{
-					cout << "muli r" << temp2 << " r" << temp1 << endl;
-				}
-				temp3 = temp1;
-			}
-			else // op1 is a register
-			{
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "muli " << op2 << " r" << temp1 << endl;
-					temp3 = temp1;
-				}
-				else // op2 is a register
-				{
-					cout << "muli r" << temp1 << " r" << temp2 << endl;
-					temp3 = temp2;
-				}
-			}	
+			assemble_math("muli", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
 		}
 		else if (code == "MULTF")
 		{
-			if (op1[0] != '$') // op1 is a variable
-			{
-				cout << "move " << op1 << " r" << curr_reg << endl;
-				temp2 = temp1;
-				temp1 = curr_reg;
-				curr_reg++;
-
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "mulr " << op2 << " r" << temp1 << endl;
-				}
-				else // op2 is a register
-				{
-					cout << "mulr r" << temp2 << " r" << temp1 << endl;
-				}
-				temp3 = temp1;
-			}
-			else // op1 is a register
-			{
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "mulr " << op2 << " r" << temp1 << endl;
-					temp3 = temp1;
-				}
-				else // op2 is a register
-				{
-					cout << "mulr r" << temp1 << " r" << temp2 << endl;
-					temp3 = temp2;
-				}
-			}	
+			assemble_math("mulr", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
 		}
 		// Div
 		else if (code == "DIVI")
 		{
-			if (op1[0] != '$') // op1 is a variable
-			{
-				cout << "move " << op1 << " r" << curr_reg << endl;
-				temp2 = temp1;
-				temp1 = curr_reg;
-				curr_reg++;
-
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "divi " << op2 << " r" << temp1 << endl;
-				}
-				else // op2 is a register
-				{
-					cout << "divi r" << temp2 << " r" << temp1 << endl;
-				}
-				temp3 = temp1;
-			}
-			else // op1 is a register
-			{
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "divi " << op2 << " r" << temp1 << endl;
-					temp3 = temp1;
-				}
-				else // op2 is a register
-				{
-					cout << "divi r" << temp1 << " r" << temp2 << endl;
-					temp3 = temp2;
-				}
-			}	
+			assemble_math("divi", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
 		}
 		else if (code == "DIVF")
 		{
-			if (op1[0] != '$') // op1 is a variable
-			{
-				cout << "move " << op1 << " r" << curr_reg << endl;
-				temp2 = temp1;
-				temp1 = curr_reg;
-				curr_reg++;
-
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "divr " << op2 << " r" << temp1 << endl;
-				}
-				else // op2 is a register
-				{
-					cout << "divr r" << temp2 << " r" << temp1 << endl;
-				}
-				temp3 = temp1;
-			}
-			else // op1 is a register
-			{
-				if (op2[0] != '$') // op2 is a variable
-				{
-					cout << "divr " << op2 << " r" << temp1 << endl;
-					temp3 = temp1;
-				}
-				else // op2 is a register
-				{
-					cout << "divr r" << temp1 << " r" << temp2 << endl;
-					temp3 = temp2;
-				}
-			}	
+			assemble_math("divi", op1, op2, &curr_reg, &temp1, &temp2, &output_reg);
 		}
 	}
 	cout << "sys halt";
@@ -719,4 +488,38 @@ void destroy_AST(ASTNode * n)
 		destroy_AST(n->right);
 		delete n;
 	}
+}
+
+void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * temp1, int * temp2, int * output_reg)
+{
+	if (op1[0] != '$') // op1 is a variable
+	{
+		cout << "move " << op1 << " r" << *curr_reg << endl;
+		*temp2 = *temp1;
+		*temp1 = *curr_reg;
+		*curr_reg = *curr_reg + 1;
+
+		if (op2[0] != '$') // op2 is a variable
+		{
+			cout << opcode << " " << op2 << " r" << *temp1 << endl;
+		}
+		else // op2 is a register
+		{
+			cout << opcode << " r" << *temp2 << " r" << *temp1 << endl;
+		}
+		*output_reg = *temp1;
+	}
+	else // op1 is a register
+	{
+		if (op2[0] != '$') // op2 is a variable
+		{
+			cout << opcode << " " << op2 << " r" << *temp1 << endl;
+			*output_reg = *temp1;
+		}
+		else // op2 is a register
+		{
+			cout << opcode << " r" << *temp1 << " r" << *temp2 << endl;
+			*output_reg = *temp2;
+		}
+	}	
 }
