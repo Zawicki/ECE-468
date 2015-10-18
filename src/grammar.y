@@ -18,7 +18,8 @@ extern int line_num;
 void yyerror(const char *s);
 void push_block();
 void add_symbol_table();
-void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * output_reg);
+void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg);
+void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg);
 
 struct wrapper 
 { 
@@ -39,7 +40,6 @@ stringstream ss;
 vector <string> id_vec, vars;
 
 int reg_cnt = 0;
-stack <int> regs;
 %}
 
 %code requires
@@ -361,6 +361,8 @@ int main(int argc, char * argv[])
 	
 	int curr_reg = 0;
 	int output_reg = 0;
+	int addop_temp = 0;
+	int mulop_temp = 0;
 	string code, op1, op2, result;
 	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it)
 	{
@@ -382,12 +384,10 @@ int main(int argc, char * argv[])
 			if (result[0] != '$') // storing into a variable
 			{
 				cout << "move r" << output_reg << " " << result << endl;
-				regs.pop();
 			}
 			else
 			{
 				cout << "move " << op1 << " r" << curr_reg << endl;
-				regs.push(curr_reg - 2);
 				output_reg = curr_reg;
 				curr_reg++;
 			}
@@ -395,38 +395,38 @@ int main(int argc, char * argv[])
 		// Plus
 		else if (code == "ADDI")
 		{
-			assemble_math("addi", op1, op2, &curr_reg, &output_reg);
+			assemble_addop("addi", op1, op2, &curr_reg, &addop_temp, &output_reg);
 		}
 		else if (code == "ADDF")
 		{
-			assemble_math("addr", op1, op2, &curr_reg, &output_reg);
+			assemble_addop("addr", op1, op2, &curr_reg, &addop_temp, &output_reg);
 		}
 		// Sub
 		else if (code == "SUBI")
 		{
-			assemble_math("subi", op1, op2, &curr_reg, &output_reg);
+			assemble_addop("subi", op1, op2, &curr_reg, &addop_temp, &output_reg);
 		}
 		else if (code == "SUBF")
 		{
-			assemble_math("subi", op1, op2, &curr_reg, &output_reg);
+			assemble_addop("subr", op1, op2, &curr_reg, &addop_temp, &output_reg);
 		}
 		// Mult
 		else if (code == "MULTI")
 		{
-			assemble_math("muli", op1, op2, &curr_reg, &output_reg);
+			assemble_mulop("muli", op1, op2, &curr_reg, &mulop_temp, &output_reg);
 		}
 		else if (code == "MULTF")
 		{
-			assemble_math("mulr", op1, op2, &curr_reg, &output_reg);
+			assemble_mulop("mulr", op1, op2, &curr_reg, &mulop_temp, &output_reg);
 		}
 		// Div
 		else if (code == "DIVI")
 		{
-			assemble_math("divi", op1, op2, &curr_reg, &output_reg);
+			assemble_mulop("divi", op1, op2, &curr_reg, &mulop_temp, &output_reg);
 		}
 		else if (code == "DIVF")
 		{
-			assemble_math("divi", op1, op2, &curr_reg, &output_reg);
+			assemble_mulop("divr", op1, op2, &curr_reg, &mulop_temp, &output_reg);
 		}
 	}
 	cout << "sys halt";
@@ -491,12 +491,12 @@ void destroy_AST(ASTNode * n)
 	}
 }
 
-void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * output_reg)
+void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg)
 {
 	if (op1[0] != '$') // op1 is a variable
 	{
 		cout << "move " << op1 << " r" << *curr_reg << endl;
-		regs.push(*curr_reg - 1);
+		*temp = *curr_reg - 1;
 		*curr_reg = *curr_reg + 1;
 
 		if (op2[0] != '$') // op2 is a variable
@@ -505,10 +505,10 @@ void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * 
 		}
 		else // op2 is a register
 		{
-			cout << opcode << " r" << regs.top() << " r" << *curr_reg - 1 << endl;
-			regs.pop();
+			cout << opcode << " r" << *temp << " r" << *curr_reg - 1 << endl;
 		}
 		*output_reg = *curr_reg - 1;
+		*temp = *curr_reg - 1;
 	}
 	else // op1 is a register
 	{
@@ -519,42 +519,42 @@ void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * 
 		}
 		else // op2 is a register
 		{
-			cout << opcode << " r" << *curr_reg - 1 << " r" << regs.top() << endl;
-			*output_reg = regs.top();
+			cout << opcode << " r" << *curr_reg - 1 << " r" << *temp << endl;
+			*output_reg = *temp;
 		}
 	}
 }
 
-/*void assemble_math(string opcode, string op1, string op2, int * curr_reg, int * temp1, int * temp2, int * output_reg)
+void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg)
 {
 	if (op1[0] != '$') // op1 is a variable
 	{
 		cout << "move " << op1 << " r" << *curr_reg << endl;
-		*temp2 = *temp1;
-		*temp1 = *curr_reg;
+		*temp = *curr_reg - 1;
 		*curr_reg = *curr_reg + 1;
 
 		if (op2[0] != '$') // op2 is a variable
 		{
-			cout << opcode << " " << op2 << " r" << *temp1 << endl;
+			cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
 		}
 		else // op2 is a register
 		{
-			cout << opcode << " r" << *temp2 << " r" << *temp1 << endl;
+			cout << opcode << " r" << *temp << " r" << *curr_reg - 1 << endl;
 		}
-		*output_reg = *temp1;
+		*output_reg = *curr_reg - 1;
+		*temp = *curr_reg - 1;
 	}
 	else // op1 is a register
 	{
 		if (op2[0] != '$') // op2 is a variable
 		{
-			cout << opcode << " " << op2 << " r" << *temp1 << endl;
-			*output_reg = *temp1;
+			cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			*output_reg = *curr_reg - 1;
 		}
 		else // op2 is a register
 		{
-			cout << opcode << " r" << *temp1 << " r" << *temp2 << endl;
-			*output_reg = *temp2;
+			cout << opcode << " r" << *curr_reg - 1 << " r" << *temp << endl;
+			*output_reg = *temp;
 		}
-	}	
-}*/
+	}
+}
