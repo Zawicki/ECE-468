@@ -40,6 +40,7 @@ stringstream ss;
 vector <string> id_vec, vars;
 
 int reg_cnt = 0;
+stack <int> regs;
 %}
 
 %code requires
@@ -384,11 +385,14 @@ int main(int argc, char * argv[])
 			if (result[0] != '$') // storing into a variable
 			{
 				cout << "move r" << output_reg << " " << result << endl;
+				while (!regs.empty())
+					regs.pop();
 			}
 			else
 			{
 				cout << "move " << op1 << " r" << curr_reg << endl;
 				output_reg = curr_reg;
+				regs.push(curr_reg);
 				curr_reg++;
 			}
 		}
@@ -502,10 +506,16 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int *
 		if (op2[0] != '$') // op2 is a variable
 		{
 			cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			regs.push(*curr_reg - 1);
 		}
 		else // op2 is a register
 		{
 			cout << opcode << " r" << *addop_temp << " r" << *curr_reg - 1 << endl;
+			if (!regs.empty()) 
+			{
+				regs.pop();
+			}
+			regs.push(*curr_reg - 1);
 		}
 		*output_reg = *curr_reg - 1;
 		*addop_temp = *curr_reg - 1;
@@ -519,8 +529,14 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int *
 		}
 		else // op2 is a register
 		{
+			while (!regs.empty())
+			{
+				*addop_temp = regs.top();
+				regs.pop();
+			}
 			cout << opcode << " r" << *curr_reg - 1 << " r" << *addop_temp << endl;
 			*output_reg = *addop_temp;
+			regs.push(*addop_temp);
 		}
 	}
 	*mulop_temp = *addop_temp;
@@ -537,10 +553,16 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int *
 		if (op2[0] != '$') // op2 is a variable
 		{
 			cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			regs.push(*curr_reg - 1);
 		}
 		else // op2 is a register
 		{
 			cout << opcode << " r" << *temp << " r" << *curr_reg - 1 << endl;
+			if (!regs.empty()) 
+			{
+				regs.pop();
+			}
+			regs.push(*curr_reg - 1);
 		}
 		*output_reg = *curr_reg - 1;
 		*temp = *curr_reg - 1;
@@ -554,8 +576,14 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int *
 		}
 		else // op2 is a register
 		{
+			while (!regs.empty())
+			{
+				*temp = regs.top();
+				regs.pop();
+			}
 			cout << opcode << " r" << *curr_reg - 1 << " r" << *temp << endl;
 			*output_reg = *temp;
+			regs.push(*temp);
 		}
 	}
 }
