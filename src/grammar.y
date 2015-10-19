@@ -18,7 +18,7 @@ extern int line_num;
 void yyerror(const char *s);
 void push_block();
 void add_symbol_table();
-void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg);
+void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * add_temp, int * mul_temp, int * output_reg);
 void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg);
 
 struct wrapper 
@@ -395,20 +395,20 @@ int main(int argc, char * argv[])
 		// Plus
 		else if (code == "ADDI")
 		{
-			assemble_addop("addi", op1, op2, &curr_reg, &addop_temp, &output_reg);
+			assemble_addop("addi", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
 		}
 		else if (code == "ADDF")
 		{
-			assemble_addop("addr", op1, op2, &curr_reg, &addop_temp, &output_reg);
+			assemble_addop("addr", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
 		}
 		// Sub
 		else if (code == "SUBI")
 		{
-			assemble_addop("subi", op1, op2, &curr_reg, &addop_temp, &output_reg);
+			assemble_addop("subi", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
 		}
 		else if (code == "SUBF")
 		{
-			assemble_addop("subr", op1, op2, &curr_reg, &addop_temp, &output_reg);
+			assemble_addop("subr", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
 		}
 		// Mult
 		else if (code == "MULTI")
@@ -491,12 +491,12 @@ void destroy_AST(ASTNode * n)
 	}
 }
 
-void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg)
+void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * addop_temp, int * mulop_temp, int * output_reg)
 {
 	if (op1[0] != '$') // op1 is a variable
 	{
 		cout << "move " << op1 << " r" << *curr_reg << endl;
-		*temp = *curr_reg - 1;
+		*addop_temp = *curr_reg - 1;
 		*curr_reg = *curr_reg + 1;
 
 		if (op2[0] != '$') // op2 is a variable
@@ -505,10 +505,10 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int *
 		}
 		else // op2 is a register
 		{
-			cout << opcode << " r" << *temp << " r" << *curr_reg - 1 << endl;
+			cout << opcode << " r" << *addop_temp << " r" << *curr_reg - 1 << endl;
 		}
 		*output_reg = *curr_reg - 1;
-		*temp = *curr_reg - 1;
+		*addop_temp = *curr_reg - 1;
 	}
 	else // op1 is a register
 	{
@@ -519,10 +519,11 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int *
 		}
 		else // op2 is a register
 		{
-			cout << opcode << " r" << *curr_reg - 1 << " r" << *temp << endl;
-			*output_reg = *temp;
+			cout << opcode << " r" << *curr_reg - 1 << " r" << *addop_temp << endl;
+			*output_reg = *addop_temp;
 		}
 	}
+	*mulop_temp = *addop_temp;
 }
 
 void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg)
