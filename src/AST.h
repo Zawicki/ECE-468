@@ -8,6 +8,7 @@ class IRNode
 		string op1;
 		string op2;
 		string result;
+		string cmp_type;
 
 		IRNode(string op, string o1, string o2, string r)
 		{
@@ -15,6 +16,16 @@ class IRNode
 			op1 = o1;
 			op2 = o2;
 			result = r;
+			cmp_type = "none";
+		}	
+
+		IRNode(string op, string o1, string o2, string r, string t)
+		{
+			opcode = op;
+			op1 = o1;
+			op2 = o2;
+			result = r;
+			cmp_type = t;
 		}	
 
 		void print_Node()
@@ -99,7 +110,7 @@ class VarNode : public ASTNode
 
 		IRNode gen_IR()
 		{
-			return IRNode("","","","");
+			return IRNode("","","",reg,"VAR");
 		}
 
 };

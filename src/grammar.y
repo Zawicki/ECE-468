@@ -34,6 +34,7 @@ map <string, wrapper> table;
 map <string, map<string, wrapper> > symbol_table;
 
 int block_cnt = 0;
+int lbl_cnt = 0;
 
 stringstream ss;
 
@@ -41,12 +42,14 @@ vector <string> id_vec, vars;
 
 int reg_cnt = 0;
 stack <int> regs;
+stack <string> labels;
 %}
 
 %code requires
 {
 	#include "./src/AST.h"
 	void makeIR(ASTNode * n);
+	string CondExprIR(ASTNode * n, string * t);
 	void destroy_AST(ASTNode * n);
 }
 
@@ -90,7 +93,7 @@ vector <IRNode> IR;
 %token <sval> STRINGLITERAL
 %token <sval> IDENTIFIER
 
-%type <sval> id str var_type
+%type <sval> id str var_type compop
 %type <AST_ptr> primary postfix_expr call_expr expr_list expr_list_tail addop mulop assign_expr factor factor_prefix expr_prefix expr
 %%
 
@@ -273,20 +276,21 @@ mulop:
 
 if_stmt:
 	IF  {push_block()}
-	'(' cond ')' decl 
-	stmt_list else_part 
+	'(' cond ')' 
+	decl stmt_list {ss.str(""); ss << "label" << lbl_cnt++; IR.push_back(IRNode("JUMP", "", "", ss.str())); IR.push_back(IRNode("LABEL", "", "", labels.top())); labels.pop(); labels.push(ss.str())}
+	else_part {IR.push_back(IRNode("LABEL", "", "", labels.top())); labels.pop()}
 	FI {scope.pop()}
 	;
 else_part:
 	ELSE {push_block()} 
 	decl  
-	stmt_list {scope.pop()}|
+	stmt_list {scope.pop()} |
 	;
 cond:
-	expr compop expr
+	expr compop expr {string t; string op1 = CondExprIR($1, &t); IR.push_back(IRNode("", "", "", "", "SAVE")); string op2 = CondExprIR($3, &t); ss.str(""); ss << "label" << lbl_cnt++;  IR.push_back(IRNode($2, op1, op2, ss.str(), t)); labels.push(ss.str()); destroy_AST($1); destroy_AST($3)}
 	;
 compop:
-	'<' | '>' | '=' | NEQ | LEQ | GEQ
+	'<' {$$ = (char *)"GE"} | '>' {$$ = (char *)"LE"} | '=' {$$ = (char *)"NE"} | NEQ {$$ = (char *)"EQ"} | LEQ {$$ = (char *)"GT"} | GEQ {$$ = (char *)"LT"}
 	;
 
 init_stmt:
@@ -364,13 +368,22 @@ int main(int argc, char * argv[])
 	int output_reg = 0;
 	int addop_temp = 0;
 	int mulop_temp = 0;
-	string code, op1, op2, result;
+	string code, op1, op2, result, saved_reg;
 	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it)
 	{
 		code = it->opcode;
 		op1 = it->op1;
 		op2 = it->op2;
 		result = it->result;
+
+		if (it->cmp_type == "SAVE")
+		{
+			saved_reg = output_reg;
+		}
+		else if (it->cmp_type == "VAR")
+		{
+			saved_reg = result;
+		}
 
 		if (code == "WRITEI")
 		{
@@ -379,6 +392,67 @@ int main(int argc, char * argv[])
 		else if (code == "WRITEF")
 		{
 			cout << "sys writer " << result << endl;
+		}
+		else if (code == "JUMP")
+		{
+			cout << "jmp " << result << endl;
+		}
+		else if (code == "GT")
+		{
+			if (it->cmp_type == "INT")
+				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			else
+				cout << "cmpr " << op1 << " r" << output_reg << endl;
+			cout << "jgt " << result << endl;
+		}
+		else if (code == "GE")
+		{
+			if (it->cmp_type == "INT")
+				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			else
+				cout << "cmpr " << op1 << " r" << output_reg << endl;
+			cout << "jge " << result << endl;
+
+		}
+		else if (code == "LT")
+		{
+			if (it->cmp_type == "INT")
+				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			else
+				cout << "cmpr " << op1 << " r" << output_reg << endl;
+			cout << "jlt " << result << endl;
+
+		}
+		else if (code == "LE")
+		{
+			if (it->cmp_type == "INT")
+				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			else
+				cout << "cmpr " << op1 << " r" << output_reg << endl;
+			cout << "jle " << result << endl;
+
+		}
+		else if (code == "NE")
+		{
+			if (it->cmp_type == "INT")
+				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			else
+				cout << "cmpr " << op1 << " r" << output_reg << endl;
+			cout << "jne " << result << endl;
+
+		}
+		else if (code == "EQ")
+		{
+			if (it->cmp_type == "INT")
+				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			else
+				cout << "cmpr " << op1 << " r" << output_reg << endl;
+			cout << "jeq " << result << endl;
+
+		}
+		else if (code == "LABEL")
+		{
+			cout << "label " << result << endl;
 		}
 		else if (code == "STOREI" || code == "STOREF")
 		{
@@ -454,8 +528,34 @@ void add_symbol_table()
 
 void yyerror(const char *s)
 {
-	cout << "DECLARATION ERROR " << s << endl;
+	cout << s << endl;
 	exit(line_num);
+}
+
+string CondExprIR(ASTNode * n, string * t)
+{
+	if (n != NULL)
+	{
+		CondExprIR(n->left, t);
+		CondExprIR(n->right, t);
+		ss.str("");
+		if (n->node_type == "OP")
+		{
+			n->data_type = n->left->data_type;
+			ss << "$T" << ++reg_cnt;
+			n->reg = ss.str();
+		}
+		if (n->node_type == "CONST")
+		{
+			ss << "$T" << ++reg_cnt;
+			n->reg = ss.str();
+		}
+		IR.push_back(n->gen_IR());
+		*t = n->data_type;
+		return n->reg;
+	}
+	*t = "none";
+	return "";
 }
 
 void makeIR(ASTNode * n)
