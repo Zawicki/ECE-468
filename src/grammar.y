@@ -38,7 +38,7 @@ int lbl_cnt = 0;
 
 stringstream ss;
 
-vector <string> id_vec, vars;
+vector <string> id_vec, vars, str_const;
 
 int reg_cnt = 0;
 stack <int> regs;
@@ -120,7 +120,10 @@ string_decl:
 					if (!r.second)
 					{
 						yyerror($2);
-					}}
+					}
+					ss.str("");
+					ss << "str " << $2 << " " << $4; 
+					str_const.push_back(ss.str())}
 	;
 str:
 	STRINGLITERAL	{$$ = $1}
@@ -223,8 +226,12 @@ write_stmt:
 					map <string, wrapper> m = symbol_table["GLOBAL"];
 					if (m[*it].vals[0] == "INT")
 						IR.push_back(IRNode("WRITEI", "", "", *it));
-					else
+					else if (m[*it].vals[0] == "FLOAT")
+
 						IR.push_back(IRNode("WRITEF", "", "", *it));
+					else
+						IR.push_back(IRNode("WRITES", "", "", *it));
+
 				}
 				id_vec.clear()}
 	;
@@ -369,7 +376,12 @@ int main(int argc, char * argv[])
 	{
 		cout << "var " << *it << endl;
 	}
-	
+
+	for (vector <string>::iterator it = str_const.begin(); it != str_const.end(); ++it)
+	{
+		cout << *it << endl;
+	}
+		
 	int curr_reg = 0;
 	int output_reg = 0;
 	int addop_temp = 0;
@@ -398,6 +410,10 @@ int main(int argc, char * argv[])
 		else if (code == "WRITEF")
 		{
 			cout << "sys writer " << result << endl;
+		}
+		else if (code == "WRITES")
+		{
+			cout << "sys writes " << result << endl;
 		}
 		else if (code == "READI")
 		{
