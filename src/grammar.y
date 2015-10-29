@@ -94,7 +94,8 @@ vector <IRNode> IR;
 %token <sval> IDENTIFIER
 
 %type <sval> id str var_type compop
-%type <AST_ptr> primary postfix_expr call_expr expr_list expr_list_tail addop mulop assign_expr factor factor_prefix expr_prefix expr
+%type <AST_ptr> primary postfix_expr call_expr expr_list expr_list_tail addop mulop
+%type <AST_ptr> init_stmt incr_stmt assign_expr factor factor_prefix expr_prefix expr
 %%
 
 program:
@@ -196,7 +197,7 @@ base_stmt:
 	;
 
 assign_stmt:
-	assign_expr ';' {makeIR($1); /*cout << endl;*/ destroy_AST($1)}
+	assign_expr ';' {makeIR($1); destroy_AST($1)}
 	;
 assign_expr:
 	id ASSIGN expr {map <string, wrapper>  m = symbol_table["GLOBAL"];
@@ -294,16 +295,21 @@ compop:
 	;
 
 init_stmt:
-	assign_expr | 
+	assign_expr {$$ = $1} | {$$ = NULL} 
 	;
 incr_stmt:
-	assign_expr |
+	assign_expr {$$ = $1} | {$$ = NULL}
 	;
 
 for_stmt:
 	FOR  {push_block()}
-	'(' init_stmt ';' cond ';' incr_stmt ')' decl 	
-	stmt_list ROF	{scope.pop()}
+	'(' 
+	init_stmt ';' {makeIR($4); destroy_AST($4); ss.str(""); ss << "label" << lbl_cnt++; labels.push(ss.str()); IR.push_back(IRNode("LABEL", "", "", ss.str()))}
+	cond ';'
+	incr_stmt 
+	')' 
+	decl stmt_list {makeIR($9); destroy_AST($9); string temp = labels.top(); labels.pop(); IR.push_back(IRNode("JUMP", "", "", labels.top())); labels.push(temp); IR.push_back(IRNode("LABEL", "", "", temp))}
+	ROF	{scope.pop()}
 	;
 
 %%
@@ -392,6 +398,14 @@ int main(int argc, char * argv[])
 		else if (code == "WRITEF")
 		{
 			cout << "sys writer " << result << endl;
+		}
+		else if (code == "READI")
+		{
+			cout << "sys readi " << result << endl;
+		}
+		else if (code == "READF")
+		{
+			cout << "sys readr " << result << endl;
 		}
 		else if (code == "JUMP")
 		{
