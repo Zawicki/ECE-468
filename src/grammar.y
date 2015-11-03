@@ -20,6 +20,8 @@ void push_block();
 void add_symbol_table();
 void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * add_temp, int * mul_temp, int * output_reg);
 void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg);
+void assemble_cmpi(string op1, string op2, string saved_reg, int output_reg, int * curr_reg);
+void assemble_cmpr(string op1, string op2, string saved_reg, int output_reg, int * curr_reg);
 
 struct wrapper 
 { 
@@ -402,7 +404,6 @@ int main(int argc, char * argv[])
 		{
 			saved_reg = result;
 		}
-
 		if (code == "WRITEI")
 		{
 			cout << "sys writei " << result << endl;
@@ -430,55 +431,86 @@ int main(int argc, char * argv[])
 		else if (code == "GT")
 		{
 			if (it->cmp_type == "INT")
-				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			else
-				cout << "cmpr " << op1 << " r" << output_reg << endl;
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			cout << "jgt " << result << endl;
+			while (!regs.empty())
+				regs.pop();
 		}
 		else if (code == "GE")
 		{
 			if (it->cmp_type == "INT")
-				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			else
-				cout << "cmpr " << op1 << " r" << output_reg << endl;
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			cout << "jge " << result << endl;
-
+			while (!regs.empty())
+				regs.pop();
 		}
 		else if (code == "LT")
 		{
 			if (it->cmp_type == "INT")
-				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			else
-				cout << "cmpr " << op1 << " r" << output_reg << endl;
-			cout << "jlt " << result << endl;
-
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			cout << "jlt " << result << endl;			
+			while (!regs.empty())
+				regs.pop();
 		}
 		else if (code == "LE")
 		{
 			if (it->cmp_type == "INT")
-				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			else
-				cout << "cmpr " << op1 << " r" << output_reg << endl;
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			cout << "jle " << result << endl;
-
+			while (!regs.empty())
+				regs.pop();
 		}
 		else if (code == "NE")
 		{
 			if (it->cmp_type == "INT")
-				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			else
-				cout << "cmpr " << op1 << " r" << output_reg << endl;
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			cout << "jne " << result << endl;
-
+			while (!regs.empty())
+				regs.pop();
 		}
 		else if (code == "EQ")
 		{
 			if (it->cmp_type == "INT")
-				cout << "cmpi " << op1 << " r" << output_reg << endl;
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			else
-				cout << "cmpr " << op1 << " r" << output_reg << endl;
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			cout << "jeq " << result << endl;
-
+			while (!regs.empty())
+				regs.pop();
 		}
 		else if (code == "LABEL")
 		{
@@ -488,9 +520,18 @@ int main(int argc, char * argv[])
 		{
 			if (result[0] != '$') // storing into a variable
 			{
-				cout << "move r" << output_reg << " " << result << endl;
-				while (!regs.empty())
-					regs.pop();
+				if (op1[0] != '$') // the op is a variable
+				{
+					cout << "move " << op1 << " r" << curr_reg << endl;
+					cout << "move r" << curr_reg << " " << result << endl;
+					curr_reg = curr_reg + 1;
+				}
+				else
+				{
+					cout << "move r" << output_reg << " " << result << endl;
+					while (!regs.empty())
+						regs.pop();
+				}
 			}
 			else
 			{
@@ -715,5 +756,51 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int *
 			*output_reg = *temp;
 			regs.push(*temp);
 		}
+	}
+}
+
+void assemble_cmpi(string op1, string op2, string saved_reg, int output_reg, int * curr_reg)
+{
+	if (op1[0] != '$' && op2[0] != '$') // op1 and op2 are variables
+	{
+		cout << "move " << op2 << " r" << *curr_reg << endl;
+		output_reg = *curr_reg;
+		*curr_reg = *curr_reg + 1;
+		cout << "cmpi " << op1 << " r" << output_reg << endl;
+	}
+	else if (op1[0] != '$') // only op1 is a variable
+	{
+		cout << "cmpi " << op1 << " r" << output_reg << endl;
+	}
+	else if (op2[0] != '$') // only op2 is variable
+	{
+		cout << "cmpi r" << output_reg << " " << op2 << endl;
+	}
+	else // both ops are constant
+	{
+		cout << "cmpi r" << saved_reg << " r" << output_reg;
+	}
+}
+
+void assemble_cmpr(string op1, string op2, string saved_reg, int output_reg, int * curr_reg)
+{
+	if (op1[0] != '$' && op2[0] != '$') // op1 and op2 are variables
+	{
+		cout << "move " << op2 << " r" << *curr_reg << endl;
+		output_reg = *curr_reg;
+		*curr_reg = *curr_reg + 1;
+		cout << "cmpr " << op1 << " r" << output_reg << endl;
+	}
+	else if (op1[0] != '$') // only op1 is a variable
+	{
+		cout << "cmpr " << op1 << " r" << output_reg << endl;
+	}
+	else if (op2[0] != '$') // only op2 is variable
+	{
+		cout << "cmpr r" << output_reg << " " << op2 << endl;
+	}
+	else // both ops are constant
+	{
+		cout << "cmpr r" << saved_reg << " r" << output_reg;
 	}
 }
