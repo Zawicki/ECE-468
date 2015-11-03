@@ -28,23 +28,23 @@ struct wrapper
 	string vals[2];
 }w, p;
 
-stack <string> scope;
+stack <string> scope; // A stack holding the current valid scopes during parsing
 
 pair<map <string, wrapper>::iterator, bool> r;
-map <string, wrapper> table;
+map <string, wrapper> table; // A scope of the symbol table
 
-map <string, map<string, wrapper> > symbol_table;
+map <string, map<string, wrapper> > symbol_table; // The symbol table
 
-int block_cnt = 0;
-int lbl_cnt = 0;
+int block_cnt = 0; // A counter for naming block scopes during parsing
+int lbl_cnt = 0; // A counter for naming IR labels during parsing
 
-stringstream ss;
+stringstream ss; // A string stream used to make printing int/floats easier simple
 
 vector <string> id_vec, vars, str_const;
 
-int reg_cnt = 0;
-stack <int> regs;
-stack <string> labels;
+int reg_cnt = 0; // A counter used for generating the registers in the IR code
+stack <int> regs; // Keeps track of registers in an expression
+stack <string> labels; // Holds the labels for control flow statements
 %}
 
 %code requires
@@ -366,6 +366,7 @@ int main(int argc, char * argv[])
 		}
 	}*/
 
+	// Print the IR code
 	cout << ";IR code" << endl;
 	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it)
 	{
@@ -374,11 +375,13 @@ int main(int argc, char * argv[])
 	
 	cout << ";tiny code" << endl;
 
+	// Print each int/float variable used in the assembly code
 	for (vector <string>::iterator it = vars.begin(); it != vars.end(); ++it)
 	{
 		cout << "var " << *it << endl;
 	}
 
+	// Print each string variable used in the assembly code
 	for (vector <string>::iterator it = str_const.begin(); it != str_const.end(); ++it)
 	{
 		cout << *it << endl;
@@ -389,21 +392,20 @@ int main(int argc, char * argv[])
 	int addop_temp = 0;
 	int mulop_temp = 0;
 	string code, op1, op2, result, saved_reg;
-	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it)
+	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it) // Loop through the IR nodes in order
 	{
 		code = it->opcode;
 		op1 = it->op1;
 		op2 = it->op2;
 		result = it->result;
 
-		if (it->cmp_type == "SAVE")
+		if (it->cmp_type == "SAVE") // This saves the register holding the value of the left side of a compare
 		{
 			saved_reg = output_reg;
 		}
-		else if (it->cmp_type == "VAR")
-		{
-			saved_reg = result;
-		}
+
+
+		// This if else chain checks the opcode and generates the corresponding assembly code.
 		if (code == "WRITEI")
 		{
 			cout << "sys writei " << result << endl;
@@ -526,14 +528,14 @@ int main(int argc, char * argv[])
 					cout << "move r" << curr_reg << " " << result << endl;
 					curr_reg = curr_reg + 1;
 				}
-				else
+				else // the op is a register
 				{
 					cout << "move r" << output_reg << " " << result << endl;
 					while (!regs.empty())
 						regs.pop();
 				}
 			}
-			else
+			else // storing into a register
 			{
 				cout << "move " << op1 << " r" << curr_reg << endl;
 				output_reg = curr_reg;
@@ -603,7 +605,7 @@ void yyerror(const char *s)
 	exit(line_num);
 }
 
-string CondExprIR(ASTNode * n, string * t)
+string CondExprIR(ASTNode * n, string * t) // Generates the IR for a conditional expression and returns the register holding 
 {
 	if (n != NULL)
 	{
@@ -629,7 +631,7 @@ string CondExprIR(ASTNode * n, string * t)
 	return "";
 }
 
-void makeIR(ASTNode * n)
+void makeIR(ASTNode * n) // Generates the IR of assign statements
 {
 	if (n != NULL)
 	{
@@ -656,7 +658,7 @@ void makeIR(ASTNode * n)
 	}
 }
 
-void destroy_AST(ASTNode * n)
+void destroy_AST(ASTNode * n) // Destroys an AST tree
 {
 	if (n != NULL)
 	{
@@ -666,6 +668,8 @@ void destroy_AST(ASTNode * n)
 	}
 }
 
+// Takes the IR for an addop and turns it into assembly code.
+// This function has several pointers/temp variables and a stack to keep track of registers. These things are shared with assemble_mulop
 void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * addop_temp, int * mulop_temp, int * output_reg)
 {
 	if (op1[0] != '$') // op1 is a variable
@@ -713,6 +717,8 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int *
 	*mulop_temp = *addop_temp;
 }
 
+// Takes the IR for a mulop and turns it into assembly code.
+// This function has several pointers/temp variables and a stack to keep track of registers. These things are shared with assemble_addop.
 void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg)
 {
 	if (op1[0] != '$') // op1 is a variable
@@ -759,6 +765,7 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int *
 	}
 }
 
+// Takes the IR for an integer compare and generates assembly code.
 void assemble_cmpi(string op1, string op2, string saved_reg, int output_reg, int * curr_reg)
 {
 	if (op1[0] != '$' && op2[0] != '$') // op1 and op2 are variables
@@ -782,6 +789,7 @@ void assemble_cmpi(string op1, string op2, string saved_reg, int output_reg, int
 	}
 }
 
+// Takes the IR for a float compare and generates assembly code.
 void assemble_cmpr(string op1, string op2, string saved_reg, int output_reg, int * curr_reg)
 {
 	if (op1[0] != '$' && op2[0] != '$') // op1 and op2 are variables
