@@ -31,20 +31,18 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int *
 void assemble_cmpi(string op1, string op2, string saved_reg, int output_reg, int * curr_reg);
 void assemble_cmpr(string op1, string op2, string saved_reg, int output_reg, int * curr_reg);
 
-
-
 stack <string> scope; // A stack holding the current valid scopes during parsing
 stack <string> scope_help; // A stack to hold scopes when using a variable that was not declared in the current scope
 
 pair<map <string, wrapper>::iterator, bool> r;
-map <string, wrapper> table; // A scope of the symbol table
+map <string, wrapper> table; // A scope within the symbol table
 
 map <string, map<string, wrapper> > symbol_table; // The symbol table
 
 int block_cnt = 0; // A counter for naming block scopes during parsing
 int lbl_cnt = 0; // A counter for naming IR labels during parsing
 
-stringstream ss; // A string stream used to make printing int/floats easier simple
+stringstream ss; // A string stream used to make printing int/floats easier
 
 vector <string> id_vec, vars, str_const;
 
@@ -64,6 +62,7 @@ stack <string> labels; // Holds the labels for control flow statements
 %code 
 {
 vector <IRNode> IR;
+vector <tinyNode> assembly;
 }
 
 %union
@@ -185,8 +184,8 @@ func_declarations:
 	func_decl func_declarations | 
 	;
 func_decl:
-	FUNCTION any_type id	{scope.push($3);} 
-	'(' param_decl_list ')' _BEGIN func_body 
+	FUNCTION any_type id	{scope.push($3);}
+	'(' param_decl_list ')' _BEGIN func_body
 	END {scope.pop()}
 	;
 func_body:
@@ -413,27 +412,33 @@ int main(int argc, char * argv[])
 		// This if else chain checks the opcode and generates the corresponding assembly code.
 		if (code == "WRITEI")
 		{
-			cout << "sys writei " << result << endl;
+			//cout << "sys writei " << result << endl;
+			assembly.push_back(tinyNode("sys writei", result, ""));
 		}
 		else if (code == "WRITEF")
 		{
-			cout << "sys writer " << result << endl;
+			//cout << "sys writer " << result << endl;
+			assembly.push_back(tinyNode("sys writer", result, ""));
 		}
 		else if (code == "WRITES")
 		{
-			cout << "sys writes " << result << endl;
+			//cout << "sys writes " << result << endl;
+			assembly.push_back(tinyNode("sys writes", result, ""));
 		}
 		else if (code == "READI")
 		{
-			cout << "sys readi " << result << endl;
+			//cout << "sys readi " << result << endl;
+			assembly.push_back(tinyNode("sys readi", result, ""));
 		}
 		else if (code == "READF")
 		{
-			cout << "sys readr " << result << endl;
+			//cout << "sys readr " << result << endl;
+			assembly.push_back(tinyNode("sys readr", result, ""));
 		}
 		else if (code == "JUMP")
 		{
-			cout << "jmp " << result << endl;
+			//cout << "jmp " << result << endl;
+			assembly.push_back(tinyNode("jmp", result, ""));
 		}
 		else if (code == "GT")
 		{
@@ -445,7 +450,8 @@ int main(int argc, char * argv[])
 			{
 				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
-			cout << "jgt " << result << endl;
+			//cout << "jgt " << result << endl;
+			assembly.push_back(tinyNode("jgt", result, ""));
 			while (!regs.empty())
 				regs.pop();
 		}
@@ -459,7 +465,8 @@ int main(int argc, char * argv[])
 			{
 				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
-			cout << "jge " << result << endl;
+			//cout << "jge " << result << endl;
+			assembly.push_back(tinyNode("jge", result, ""));
 			while (!regs.empty())
 				regs.pop();
 		}
@@ -473,7 +480,8 @@ int main(int argc, char * argv[])
 			{
 				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
-			cout << "jlt " << result << endl;			
+			//cout << "jlt " << result << endl;
+			assembly.push_back(tinyNode("jlt", result, ""));			
 			while (!regs.empty())
 				regs.pop();
 		}
@@ -487,7 +495,8 @@ int main(int argc, char * argv[])
 			{
 				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
-			cout << "jle " << result << endl;
+			//cout << "jle " << result << endl;
+			assembly.push_back(tinyNode("jle", result, ""));
 			while (!regs.empty())
 				regs.pop();
 		}
@@ -501,7 +510,8 @@ int main(int argc, char * argv[])
 			{
 				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
-			cout << "jne " << result << endl;
+			//cout << "jne " << result << endl;
+			assembly.push_back(tinyNode("jne", result, ""));
 			while (!regs.empty())
 				regs.pop();
 		}
@@ -515,13 +525,15 @@ int main(int argc, char * argv[])
 			{
 				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
-			cout << "jeq " << result << endl;
+			//cout << "jeq " << result << endl;
+			assembly.push_back(tinyNode("jeq", result, ""));
 			while (!regs.empty())
 				regs.pop();
 		}
 		else if (code == "LABEL")
 		{
-			cout << "label " << result << endl;
+			//cout << "label " << result << endl;
+			assembly.push_back(tinyNode("label", result, ""));
 		}
 		else if (code == "STOREI" || code == "STOREF")
 		{
@@ -529,20 +541,30 @@ int main(int argc, char * argv[])
 			{
 				if (op1[0] != '$') // the op is a variable
 				{
-					cout << "move " << op1 << " r" << curr_reg << endl;
-					cout << "move r" << curr_reg << " " << result << endl;
+					//cout << "move " << op1 << " r" << curr_reg << endl;
+					//cout << "move r" << curr_reg << " " << result << endl;
+					ss << "r" << curr_reg;
+					assembly.push_back(tinyNode("move", op1, ss.str()));
+					assembly.push_back(tinyNode("move", ss.str(), result));
+					ss.str("");
 					curr_reg = curr_reg + 1;
 				}
 				else // the op is a register
 				{
-					cout << "move r" << output_reg << " " << result << endl;
+					//cout << "move r" << output_reg << " " << result << endl;
+					ss << "r" << output_reg;
+					assembly.push_back(tinyNode("move", ss.str(), result));
+					ss.str("");
 					while (!regs.empty())
 						regs.pop();
 				}
 			}
 			else // storing into a register
 			{
-				cout << "move " << op1 << " r" << curr_reg << endl;
+				//cout << "move " << op1 << " r" << curr_reg << endl;
+				ss << "r" << curr_reg;
+				assembly.push_back(tinyNode("move", op1, ss.str()));
+				ss.str("");
 				output_reg = curr_reg;
 				regs.push(curr_reg);
 				curr_reg++;
@@ -585,6 +607,12 @@ int main(int argc, char * argv[])
 			assemble_mulop("divr", op1, op2, &curr_reg, &mulop_temp, &output_reg);
 		}
 	}
+
+	for (vector <tinyNode>::iterator it = assembly.begin(); it != assembly.end(); ++it) // Loop through the tiny nodes in order
+	{
+		it ->print_Node();
+	}
+
 	cout << "sys halt";
 
 
@@ -708,18 +736,33 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int *
 {
 	if (op1[0] != '$') // op1 is a variable
 	{
-		cout << "move " << op1 << " r" << *curr_reg << endl;
+		//cout << "move " << op1 << " r" << *curr_reg << endl;
+		ss << "r" << *curr_reg;
+		assembly.push_back(tinyNode("move", op1, ss.str()));
+		ss.str("");
+
 		*addop_temp = *curr_reg - 1;
 		*curr_reg = *curr_reg + 1;
 
 		if (op2[0] != '$') // op2 is a variable
 		{
-			cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			//cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			ss << "r" << *curr_reg - 1; 
+			assembly.push_back(tinyNode(opcode, op2, ss.str()));
+			ss.str("");
+
 			regs.push(*curr_reg - 1);
 		}
 		else // op2 is a register
 		{
-			cout << opcode << " r" << *addop_temp << " r" << *curr_reg - 1 << endl;
+			//cout << opcode << " r" << *addop_temp << " r" << *curr_reg - 1 << endl;
+			ss << "r" << *addop_temp;
+			string t = ss.str();
+			ss.str("");
+			ss << "r" << *curr_reg - 1;
+			assembly.push_back(tinyNode(opcode, t, ss.str()));
+			ss.str("");
+
 			if (!regs.empty()) 
 			{
 				regs.pop();
@@ -733,7 +776,11 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int *
 	{
 		if (op2[0] != '$') // op2 is a variable
 		{
-			cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			//cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			ss << "r" << *curr_reg - 1; 
+			assembly.push_back(tinyNode(opcode, op2, ss.str()));
+			ss.str("");
+
 			*output_reg = *curr_reg - 1;
 		}
 		else // op2 is a register
@@ -743,7 +790,14 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int *
 				*addop_temp = regs.top();
 				regs.pop();
 			}
-			cout << opcode << " r" << *curr_reg - 1 << " r" << *addop_temp << endl;
+			//cout << opcode << " r" << *curr_reg - 1 << " r" << *addop_temp << endl;
+			ss << "r" << *addop_temp;
+			string t = ss.str();
+			ss.str("");
+			ss << "r" << *curr_reg - 1;
+			assembly.push_back(tinyNode(opcode, ss.str(), t));
+			ss.str("");
+
 			*output_reg = *addop_temp;
 			regs.push(*addop_temp);
 		}
@@ -757,18 +811,31 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int *
 {
 	if (op1[0] != '$') // op1 is a variable
 	{
-		cout << "move " << op1 << " r" << *curr_reg << endl;
+		//cout << "move " << op1 << " r" << *curr_reg << endl;
+		ss << "r" << *curr_reg;
+		assembly.push_back(tinyNode("move", op1, ss.str()));
+		ss.str("");
+
 		*temp = *curr_reg - 1;
 		*curr_reg = *curr_reg + 1;
 
 		if (op2[0] != '$') // op2 is a variable
 		{
-			cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			//cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			ss << "r" << *curr_reg - 1;
+			assembly.push_back(tinyNode(opcode, op2, ss.str()));
+			ss.str("");
 			regs.push(*curr_reg - 1);
 		}
 		else // op2 is a register
 		{
-			cout << opcode << " r" << *temp << " r" << *curr_reg - 1 << endl;
+			//cout << opcode << " r" << *temp << " r" << *curr_reg - 1 << endl;
+			ss << "r" << *temp;
+			string t = ss.str();
+			ss.str("");
+			ss << "r" << *curr_reg - 1;
+			assembly.push_back(tinyNode(opcode, t, ss.str()));
+			ss.str("");
 			if (!regs.empty()) 
 			{
 				regs.pop();
@@ -782,7 +849,10 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int *
 	{
 		if (op2[0] != '$') // op2 is a variable
 		{
-			cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			//cout << opcode << " " << op2 << " r" << *curr_reg - 1 << endl;
+			ss << "r" << *curr_reg - 1;
+			assembly.push_back(tinyNode(opcode, op2, ss.str()));
+			ss.str("");
 			*output_reg = *curr_reg - 1;
 		}
 		else // op2 is a register
@@ -792,7 +862,13 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int *
 				*temp = regs.top();
 				regs.pop();
 			}
-			cout << opcode << " r" << *curr_reg - 1 << " r" << *temp << endl;
+			//cout << opcode << " r" << *curr_reg - 1 << " r" << *temp << endl;
+			ss << "r" << *temp;
+			string t = ss.str();
+			ss.str("");
+			ss << "r" << *curr_reg - 1;
+			assembly.push_back(tinyNode(opcode, ss.str(), t));
+			ss.str("");
 			*output_reg = *temp;
 			regs.push(*temp);
 		}
@@ -804,22 +880,36 @@ void assemble_cmpi(string op1, string op2, string saved_reg, int output_reg, int
 {
 	if (op1[0] != '$' && op2[0] != '$') // op1 and op2 are variables
 	{
-		cout << "move " << op2 << " r" << *curr_reg << endl;
+		//cout << "move " << op2 << " r" << *curr_reg << endl;
+		ss << "r" << *curr_reg;
+		assembly.push_back(tinyNode("move", op2, ss.str()));
+		ss.str("");
 		output_reg = *curr_reg;
 		*curr_reg = *curr_reg + 1;
-		cout << "cmpi " << op1 << " r" << output_reg << endl;
+		//cout << "cmpi " << op1 << " r" << output_reg << endl;
+		ss << "r" << output_reg;
+		assembly.push_back(tinyNode("cmpi", op1, ss.str()));
+		ss.str("");
 	}
 	else if (op1[0] != '$') // only op1 is a variable
 	{
-		cout << "cmpi " << op1 << " r" << output_reg << endl;
+		//cout << "cmpi " << op1 << " r" << output_reg << endl;
+		ss << "r" << output_reg;
+		assembly.push_back(tinyNode("cmpi", op1, ss.str()));
+		ss.str("");
 	}
 	else if (op2[0] != '$') // only op2 is variable
 	{
-		cout << "cmpi r" << output_reg << " " << op2 << endl;
+		//cout << "cmpi r" << output_reg << " " << op2 << endl;
+		ss << "r" << output_reg;
+		assembly.push_back(tinyNode("cmpi", ss.str(), op2));
 	}
 	else // both ops are constant
 	{
-		cout << "cmpi r" << saved_reg << " r" << output_reg;
+		//cout << "cmpi r" << saved_reg << " r" << output_reg;
+		ss << "r" << output_reg;
+		assembly.push_back(tinyNode("cmpi", saved_reg, ss.str()));
+		ss.str("");
 	}
 }
 
@@ -828,21 +918,36 @@ void assemble_cmpr(string op1, string op2, string saved_reg, int output_reg, int
 {
 	if (op1[0] != '$' && op2[0] != '$') // op1 and op2 are variables
 	{
-		cout << "move " << op2 << " r" << *curr_reg << endl;
+		//cout << "move " << op2 << " r" << *curr_reg << endl;
+		ss << "r" << *curr_reg;
+		assembly.push_back(tinyNode("move", op2, ss.str()));
+		ss.str("");
 		output_reg = *curr_reg;
 		*curr_reg = *curr_reg + 1;
-		cout << "cmpr " << op1 << " r" << output_reg << endl;
+		//cout << "cmpr " << op1 << " r" << output_reg << endl;
+		ss << "r" << output_reg;
+		assembly.push_back(tinyNode("cmpr", op1, ss.str()));
+		ss.str("");
 	}
 	else if (op1[0] != '$') // only op1 is a variable
 	{
-		cout << "cmpr " << op1 << " r" << output_reg << endl;
+		//cout << "cmpr " << op1 << " r" << output_reg << endl;
+		ss << "r" << output_reg;
+		assembly.push_back(tinyNode("cmpr", op1, ss.str()));
+		ss.str("");
 	}
 	else if (op2[0] != '$') // only op2 is variable
 	{
-		cout << "cmpr r" << output_reg << " " << op2 << endl;
+		//cout << "cmpr r" << output_reg << " " << op2 << endl;
+		ss << "r" << output_reg;
+		assembly.push_back(tinyNode("cmpr", ss.str(), op2));
+		ss.str("");
 	}
 	else // both ops are constant
 	{
-		cout << "cmpr r" << saved_reg << " r" << output_reg;
+		//cout << "cmpr r" << saved_reg << " r" << output_reg;
+		ss << "r" << output_reg;
+		assembly.push_back(tinyNode("cmpr", saved_reg, ss.str()));
+		ss.str("");
 	}
 }
