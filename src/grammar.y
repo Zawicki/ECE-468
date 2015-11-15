@@ -15,20 +15,26 @@ extern "C" int yyparse();
 extern "C" FILE *yyin;
 extern int line_num;
 
-void yyerror(const char *s);
-void push_block();
-void add_symbol_table();
-void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * add_temp, int * mul_temp, int * output_reg);
-void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg);
-void assemble_cmpi(string op1, string op2, string saved_reg, int output_reg, int * curr_reg);
-void assemble_cmpr(string op1, string op2, string saved_reg, int output_reg, int * curr_reg);
-
 struct wrapper 
 { 
 	string vals[2];
 }w, p;
 
+void yyerror(const char *s);
+
+void push_block();
+void add_symbol_table();
+map <string, wrapper> find_symbol_table(string id);
+
+void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * add_temp, int * mul_temp, int * output_reg);
+void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg);
+void assemble_cmpi(string op1, string op2, string saved_reg, int output_reg, int * curr_reg);
+void assemble_cmpr(string op1, string op2, string saved_reg, int output_reg, int * curr_reg);
+
+
+
 stack <string> scope; // A stack holding the current valid scopes during parsing
+stack <string> scope_help; // A stack to hold scopes when using a variable that was not declared in the current scope
 
 pair<map <string, wrapper>::iterator, bool> r;
 map <string, wrapper> table; // A scope of the symbol table
@@ -49,7 +55,7 @@ stack <string> labels; // Holds the labels for control flow statements
 
 %code requires
 {
-	#include "./src/AST.h"
+	#include "./src/Nodes.h"
 	void makeIR(ASTNode * n);
 	string CondExprIR(ASTNode * n, string * t);
 	void destroy_AST(ASTNode * n);
@@ -205,15 +211,15 @@ assign_stmt:
 	assign_expr ';' {makeIR($1); destroy_AST($1)}
 	;
 assign_expr:
-	id ASSIGN expr {map <string, wrapper>  m = symbol_table["GLOBAL"];
-			string key = $1;
+	id ASSIGN expr {string key = $1;
+			map <string, wrapper>  m = find_symbol_table(key);
 			VarNode * n = new VarNode(key, m[key].vals[0]);
 			 $$ = new OpNode("=", n, $3)}
 	;
 read_stmt:
 	READ '(' id_list ')' ';' {for (vector <string>::reverse_iterator it = id_vec.rbegin(); it != id_vec.rend(); ++it)
 				{
-					map <string, wrapper> m = symbol_table["GLOBAL"];
+					map <string, wrapper> m = find_symbol_table(*it);
 					if (m[*it].vals[0] == "INT")
 						IR.push_back(IRNode("READI", "", "", *it));
 					else
@@ -225,11 +231,10 @@ read_stmt:
 write_stmt:
 	WRITE '(' id_list ')' ';' {for (vector <string>::reverse_iterator it = id_vec.rbegin(); it != id_vec.rend(); ++it)
 				{
-					map <string, wrapper> m = symbol_table["GLOBAL"];
+					map <string, wrapper> m = find_symbol_table(*it);
 					if (m[*it].vals[0] == "INT")
 						IR.push_back(IRNode("WRITEI", "", "", *it));
 					else if (m[*it].vals[0] == "FLOAT")
-
 						IR.push_back(IRNode("WRITEF", "", "", *it));
 					else
 						IR.push_back(IRNode("WRITES", "", "", *it));
@@ -271,7 +276,7 @@ expr_list_tail:
 	;
 primary:
 	'(' expr ')' {$$ = $2}
-	| id {map <string, wrapper> m = symbol_table["GLOBAL"]; string key = $1; $$ = new VarNode(key, m[key].vals[0])}
+	| id {string key = $1; map <string, wrapper> m = find_symbol_table(key); $$ = new VarNode(key, m[key].vals[0])}
 	| INTLITERAL {$$ = new ConstIntNode($1)}
 	| FLOATLITERAL {$$ = new ConstFloatNode($1)}
 	;
@@ -586,6 +591,12 @@ int main(int argc, char * argv[])
 	return 0;
 }
 
+void yyerror(const char *s)
+{
+	cout << s << endl;
+	exit(line_num);
+}
+
 void push_block()
 {
 	ss.str("");
@@ -599,10 +610,33 @@ void add_symbol_table()
 	table.clear();
 }
 
-void yyerror(const char *s)
+map <string, wrapper> find_symbol_table(string id) // Checks for the existence of id in any of the currently valid scopes
 {
-	cout << s << endl;
-	exit(line_num);
+	map <string, wrapper> m;
+	while (!scope.empty()) // Checks every available scope
+	{
+		m = symbol_table[scope.top()];
+		if (m.count(id) > 0) // id has been found!
+			break;
+		else // id was not found, save the current scope and check the next one
+		{
+			scope_help.push(scope.top());
+			scope.pop();
+		}
+	}
+	if (scope.empty()) // id was never found and is used illegally
+	{
+		string error = "Variable " + id + " was not found in any scope";
+		yyerror(error.c_str());
+	}
+
+	while (!scope_help.empty()) // Put all the saved scopes back in order
+	{
+		scope.push(scope_help.top());
+		scope_help.pop();
+	}
+
+	return m;
 }
 
 string CondExprIR(ASTNode * n, string * t) // Generates the IR for a conditional expression and returns the register holding 
