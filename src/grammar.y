@@ -26,6 +26,8 @@ void push_block();
 void add_symbol_table();
 map <string, wrapper> find_symbol_table(string id);
 
+void func_IR_setup(string);
+
 void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * add_temp, int * mul_temp, int * output_reg);
 void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg);
 void assemble_cmpi(string op1, string op2, string saved_reg, int output_reg, int * curr_reg);
@@ -44,25 +46,33 @@ int lbl_cnt = 0; // A counter for naming IR labels during parsing
 
 stringstream ss; // A string stream used to make printing int/floats easier
 
-vector <string> id_vec, vars, str_const;
+vector <string> id_vec, vars, str_const; // Each vector holds all variable names. This is used to declare the variable names at the start of the tiny code
 
 int reg_cnt = 0; // A counter used for generating the registers in the IR code
+int temp_cnt = 0; // A counter for numbering the temp registers of functions
+int local_cnt = 0; // A counter for numbering the local varaibles of functions
+int param_cnt = 0; // A counter for numbering the parameters of functions
+map <string, string> var_map; // A map of variable names to local/parameter variable identifiers
+
 stack <int> regs; // Keeps track of registers in an expression
 stack <string> labels; // Holds the labels for control flow statements
+
+
 %}
 
 %code requires
 {
 	#include "./src/Nodes.h"
 	void makeIR(ASTNode * n);
-	string CondExprIR(ASTNode * n, string * t);
+	string ExprIR(ASTNode * n, string * t);
 	void destroy_AST(ASTNode * n);
 }
 
 %code 
 {
-vector <IRNode> IR;
-vector <tinyNode> assembly;
+vector <IRNode> IR; // Holds the nodes for the IR code
+vector <tinyNode> assembly; // Holds the nodes for the tiny code
+map <string, vector <IRNode> > func_IR; // maps a function name to a vector of its IR nodes
 }
 
 %union
@@ -139,6 +149,7 @@ str:
 var_decl:
 	var_type id_list ';'	{for (vector <string>::reverse_iterator it = id_vec.rbegin(); it != id_vec.rend(); ++it)
 				{
+					// Add the declarations to the symbol table
 					w.vals[0] = $1;
 					w.vals[1] = "";
 					r = table.insert(pair<string, wrapper>(*it, w));
@@ -148,6 +159,15 @@ var_decl:
 						yyerror(tmp.c_str());
 					}
 					vars.push_back(*it);
+
+					// If the scope is in a function, map the variables to a local register
+					if (scope.top() != "GLOBAL")
+					{
+						ss << "$T" << local_cnt;
+						local_cnt++;
+						var_map[*it] = ss.str();
+						ss.str("");
+					}
 				}
 				id_vec.clear()}
 	;
@@ -162,7 +182,7 @@ id_list:
 	id id_tail	{id_vec.push_back($1)}
 	;
 id_tail:
-	',' id id_tail {id_vec.push_back($2)}|
+	',' id id_tail {id_vec.push_back($2)} |
 	;
 
 param_decl_list:
@@ -174,7 +194,12 @@ param_decl:
 			if (!r.second)
 			{
 				yyerror($2);
-			}}
+			}
+			string id = $2;
+			ss << "$P" << param_cnt;
+			param_cnt++;
+			var_map[id] = ss.str();
+			ss.str("")}
 	;
 param_decl_tail:
 	',' param_decl param_decl_tail | 
@@ -184,9 +209,9 @@ func_declarations:
 	func_decl func_declarations | 
 	;
 func_decl:
-	FUNCTION any_type id	{scope.push($3);}
+	FUNCTION any_type id	{scope.push($3); func_IR_setup($3)}
 	'(' param_decl_list ')' _BEGIN func_body
-	END {scope.pop()}
+	END {IRNode n = IR.back; if (n.opcode != "RET") IR.push_back(IRNode("RET", "", "", "")); string func_id = $3; func_IR[func_id] = IR; IR.clear(); scope.pop()}
 	;
 func_body:
 	decl 
@@ -218,11 +243,19 @@ assign_expr:
 read_stmt:
 	READ '(' id_list ')' ';' {for (vector <string>::reverse_iterator it = id_vec.rbegin(); it != id_vec.rend(); ++it)
 				{
+					string temp;
 					map <string, wrapper> m = find_symbol_table(*it);
+
+					if (var_map.count(*it) > 0) // Reading into a local variable
+						temp = var_map[*it];
+					else // Reading into a global variable
+						temp = *it;
+
 					if (m[*it].vals[0] == "INT")
-						IR.push_back(IRNode("READI", "", "", *it));
+						IR.push_back(IRNode("READI", "", "", temp));
 					else
-						IR.push_back(IRNode("READF", "", "", *it));
+						IR.push_back(IRNode("READF", "", "", temp));
+
 				}
 				id_vec.clear()}
 
@@ -237,12 +270,16 @@ write_stmt:
 						IR.push_back(IRNode("WRITEF", "", "", *it));
 					else
 						IR.push_back(IRNode("WRITES", "", "", *it));
-
 				}
 				id_vec.clear()}
 	;
 return_stmt:
-	RETURN expr ';'
+	RETURN expr ';' {string t; string r = ExprIR($2, &t);
+			if (t == "INT")
+				IR.push_back(IRNode("STOREI", r, "", "$R"));
+			else
+				IR.push_back(IRNode("STOREF", r, "", "$R"));
+			IR.push_back(IRNode("RET", "", "", ""))}
 	;
 
 expr:
@@ -301,7 +338,7 @@ else_part:
 	stmt_list {scope.pop()} |
 	;
 cond:
-	expr compop expr {string t; string op1 = CondExprIR($1, &t); IR.push_back(IRNode("", "", "", "", "SAVE")); string op2 = CondExprIR($3, &t); ss.str(""); ss << "label" << lbl_cnt++;  IR.push_back(IRNode($2, op1, op2, ss.str(), t)); labels.push(ss.str()); destroy_AST($1); destroy_AST($3)}
+	expr compop expr {string t; string op1 = ExprIR($1, &t); IR.push_back(IRNode("", "", "", "", "SAVE")); string op2 = ExprIR($3, &t); ss.str(""); ss << "label" << lbl_cnt++;  IR.push_back(IRNode($2, op1, op2, ss.str(), t)); labels.push(ss.str()); destroy_AST($1); destroy_AST($3)}
 	;
 compop:
 	'<' {$$ = (char *)"GE"} | '>' {$$ = (char *)"LE"} | '=' {$$ = (char *)"NE"} | NEQ {$$ = (char *)"EQ"} | LEQ {$$ = (char *)"GT"} | GEQ {$$ = (char *)"LT"}
@@ -625,17 +662,27 @@ void yyerror(const char *s)
 	exit(line_num);
 }
 
-void push_block()
+void push_block() // Pushes a block onto tthe scope stack
 {
 	ss.str("");
 	ss << "BLOCK " << ++block_cnt;
 	scope.push(ss.str());
 }
 
-void add_symbol_table()
+void add_symbol_table() // Adds the table for a single scope to the symbol table
 {
 	symbol_table[scope.top()] = table;
 	table.clear();
+}
+
+void func_IR_setup(string func_id) // Reset the register/offset counters and add IR code for the start of a function
+{
+	temp_cnt = 0;
+	local_cnt = 0;
+	param_cnt = 0;
+
+	IR.push_back(IRNode("LABEL","","", func_id));
+	IR.push_back(IRNode("LINK","","",""));
 }
 
 map <string, wrapper> find_symbol_table(string id) // Checks for the existence of id in any of the currently valid scopes
@@ -667,12 +714,12 @@ map <string, wrapper> find_symbol_table(string id) // Checks for the existence o
 	return m;
 }
 
-string CondExprIR(ASTNode * n, string * t) // Generates the IR for a conditional expression and returns the register holding 
+string ExprIR(ASTNode * n, string * t) // Generates the IR for an expression and returns the register holding the final value. t is the data type.
 {
 	if (n != NULL)
 	{
-		CondExprIR(n->left, t);
-		CondExprIR(n->right, t);
+		ExprIR(n->left, t);
+		ExprIR(n->right, t);
 		ss.str("");
 		if (n->node_type == "OP")
 		{
@@ -685,6 +732,14 @@ string CondExprIR(ASTNode * n, string * t) // Generates the IR for a conditional
 			ss << "$T" << ++reg_cnt;
 			n->reg = ss.str();
 		}
+		if (n->node_type == "VAR")
+		{
+			if (var_map.count(n->val) > 0) // If the variable is part of the current stack frame, change the register to the correct value
+			{
+				n->reg = var_map[n->val];
+			}
+		}
+
 		IR.push_back(n->gen_IR());
 		*t = n->data_type;
 		return n->reg;
@@ -715,6 +770,13 @@ void makeIR(ASTNode * n) // Generates the IR of assign statements
 		{
 			ss << "$T" << ++reg_cnt;
 			n->reg = ss.str();
+		}
+		if (n->node_type == "VAR")
+		{
+			if (var_map.count(n->val) > 0)
+			{
+				n->reg = var_map[n->val];
+			}
 		}
 		IR.push_back(n->gen_IR());
 	}
