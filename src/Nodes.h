@@ -157,7 +157,7 @@ class FuncNode : public ASTNode
 
 		IRNode gen_IR()
 		{
-			return IRNode("", "", "", r, "FUNC");
+			return IRNode("", "", "", reg, "FUNC");
 		}
 };
 

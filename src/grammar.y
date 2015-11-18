@@ -278,8 +278,8 @@ return_stmt:
 				IR.push_back(IRNode("STOREI", r, "", "$R"));
 			else
 				IR.push_back(IRNode("STOREF", r, "", "$R"));
-			IR.push_back(IRNode("RET", "", "", ""))
-			destroy_AST($2);}
+			IR.push_back(IRNode("RET", "", "", ""));
+			destroy_AST($2)}
 	;
 
 expr:
@@ -697,7 +697,7 @@ void add_symbol_table() // Adds the table for a single scope to the symbol table
 
 void func_IR_setup(string func_id) // Reset the register/offset counters and add IR code for the start of a function
 {
-	temp_cnt = 0;
+	reg_cnt = 0;
 	local_cnt = 0;
 	param_cnt = 0;
 
