@@ -20,6 +20,12 @@ struct wrapper
 	string vals[2];
 }w, p;
 
+struct info
+{
+	int L_cnt;
+	int P_cnt;
+}f;
+
 void yyerror(const char *s);
 
 void push_block();
@@ -28,6 +34,7 @@ map <string, wrapper> find_symbol_table(string id);
 
 void func_IR_setup(string);
 
+void IR_to_tiny(string fid);
 void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * add_temp, int * mul_temp, int * output_reg);
 void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg);
 void assemble_cmpi(string op1, string op2, string saved_reg, int output_reg, int * curr_reg);
@@ -52,6 +59,7 @@ int reg_cnt = 0; // A counter for numbering the temp registers of functions
 int local_cnt = 0; // A counter for numbering the local varaibles of functions
 int param_cnt = 0; // A counter for numbering the parameters of functions
 map <string, string> var_map; // A map of variable names to local/parameter variable identifiers
+map <string, info> func_info; // A map from a function name to a struct holding information about the function
 
 stack <int> regs; // Keeps track of registers in an expression
 stack <string> labels; // Holds the labels for control flow statements
@@ -210,7 +218,9 @@ func_declarations:
 func_decl:
 	FUNCTION any_type id	{scope.push($3); func_IR_setup($3)}
 	'(' param_decl_list ')' _BEGIN func_body
-	END {IRNode n = IR.back(); if (n.opcode != "RET") IR.push_back(IRNode("RET", "", "", "")); string func_id = $3; func_IR[func_id] = IR; IR.clear(); scope.pop()}
+	END {IRNode n = IR.back(); if (n.opcode != "RET") IR.push_back(IRNode("RET", "", "", "")); 
+		string func_id = $3; func_IR[func_id] = IR; IR.clear(); 
+		f.L_cnt = local_cnt; f.P_cnt = param_cnt; func_info[func_id] = f; scope.pop()}
 	;
 func_body:
 	decl 
@@ -440,246 +450,43 @@ int main(int argc, char * argv[])
 		}
 		cout << endl;
 	}
-
 	
-	/*cout << ";tiny code" << endl;
+	cout << ";tiny code" << endl;
 
-	// Print each int/float variable used in the assembly code
+	// Print each global int/float variable used in the assembly code
 	for (vector <string>::iterator it = vars.begin(); it != vars.end(); ++it)
 	{
 		cout << "var " << *it << endl;
 	}
 
-	// Print each string variable used in the assembly code
+	// Print each global string variable used in the assembly code
 	for (vector <string>::iterator it = str_const.begin(); it != str_const.end(); ++it)
 	{
 		cout << *it << endl;
 	}
 		
-	int curr_reg = 0;
-	int output_reg = 0;
-	int addop_temp = 0;
-	int mulop_temp = 0;
-	string code, op1, op2, result, saved_reg;
-	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it) // Loop through the IR nodes in order
+	// tiny code to enter the main function
+	assembly.push_back(tinyNode("push", "", ""));
+	assembly.push_back(tinyNode("push", "", "r0"));
+	assembly.push_back(tinyNode("push", "", "r1"));
+	assembly.push_back(tinyNode("push", "", "r2"));
+	assembly.push_back(tinyNode("push", "", "r3"));
+	assembly.push_back(tinyNode("jsr", "", "main"));
+	assembly.push_back(tinyNode("sys halt", "", ""));
+
+	IR_to_tiny("main");
+	for (map <string, vector <IRNode> >::iterator it = func_IR.begin(); it != func_IR.end(); ++it)
 	{
-		code = it->opcode;
-		op1 = it->op1;
-		op2 = it->op2;
-		result = it->result;
-
-		if (it->cmp_type == "SAVE") // This saves the register holding the value of the left side of a compare
+		if (it->first != "main")
 		{
-			saved_reg = output_reg;
-		}
-
-
-		// This if else chain checks the opcode and generates the corresponding assembly code.
-		if (code == "WRITEI")
-		{
-			//cout << "sys writei " << result << endl;
-			assembly.push_back(tinyNode("sys writei", result, ""));
-		}
-		else if (code == "WRITEF")
-		{
-			//cout << "sys writer " << result << endl;
-			assembly.push_back(tinyNode("sys writer", result, ""));
-		}
-		else if (code == "WRITES")
-		{
-			//cout << "sys writes " << result << endl;
-			assembly.push_back(tinyNode("sys writes", result, ""));
-		}
-		else if (code == "READI")
-		{
-			//cout << "sys readi " << result << endl;
-			assembly.push_back(tinyNode("sys readi", result, ""));
-		}
-		else if (code == "READF")
-		{
-			//cout << "sys readr " << result << endl;
-			assembly.push_back(tinyNode("sys readr", result, ""));
-		}
-		else if (code == "JUMP")
-		{
-			//cout << "jmp " << result << endl;
-			assembly.push_back(tinyNode("jmp", result, ""));
-		}
-		else if (code == "GT")
-		{
-			if (it->cmp_type == "INT")
-			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			else
-			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			//cout << "jgt " << result << endl;
-			assembly.push_back(tinyNode("jgt", result, ""));
-			while (!regs.empty())
-				regs.pop();
-		}
-		else if (code == "GE")
-		{
-			if (it->cmp_type == "INT")
-			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			else
-			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			//cout << "jge " << result << endl;
-			assembly.push_back(tinyNode("jge", result, ""));
-			while (!regs.empty())
-				regs.pop();
-		}
-		else if (code == "LT")
-		{
-			if (it->cmp_type == "INT")
-			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			else
-			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			//cout << "jlt " << result << endl;
-			assembly.push_back(tinyNode("jlt", result, ""));			
-			while (!regs.empty())
-				regs.pop();
-		}
-		else if (code == "LE")
-		{
-			if (it->cmp_type == "INT")
-			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			else
-			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			//cout << "jle " << result << endl;
-			assembly.push_back(tinyNode("jle", result, ""));
-			while (!regs.empty())
-				regs.pop();
-		}
-		else if (code == "NE")
-		{
-			if (it->cmp_type == "INT")
-			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			else
-			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			//cout << "jne " << result << endl;
-			assembly.push_back(tinyNode("jne", result, ""));
-			while (!regs.empty())
-				regs.pop();
-		}
-		else if (code == "EQ")
-		{
-			if (it->cmp_type == "INT")
-			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			else
-			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
-			}
-			//cout << "jeq " << result << endl;
-			assembly.push_back(tinyNode("jeq", result, ""));
-			while (!regs.empty())
-				regs.pop();
-		}
-		else if (code == "LABEL")
-		{
-			//cout << "label " << result << endl;
-			assembly.push_back(tinyNode("label", result, ""));
-		}
-		else if (code == "STOREI" || code == "STOREF")
-		{
-			if (result[0] != '$') // storing into a variable
-			{
-				if (op1[0] != '$') // the op is a variable
-				{
-					//cout << "move " << op1 << " r" << curr_reg << endl;
-					//cout << "move r" << curr_reg << " " << result << endl;
-					ss << "r" << curr_reg;
-					assembly.push_back(tinyNode("move", op1, ss.str()));
-					assembly.push_back(tinyNode("move", ss.str(), result));
-					ss.str("");
-					curr_reg = curr_reg + 1;
-				}
-				else // the op is a register
-				{
-					//cout << "move r" << output_reg << " " << result << endl;
-					ss << "r" << output_reg;
-					assembly.push_back(tinyNode("move", ss.str(), result));
-					ss.str("");
-					while (!regs.empty())
-						regs.pop();
-				}
-			}
-			else // storing into a register
-			{
-				//cout << "move " << op1 << " r" << curr_reg << endl;
-				ss << "r" << curr_reg;
-				assembly.push_back(tinyNode("move", op1, ss.str()));
-				ss.str("");
-				output_reg = curr_reg;
-				regs.push(curr_reg);
-				curr_reg++;
-			}
-		}
-		// Plus
-		else if (code == "ADDI")
-		{
-			assemble_addop("addi", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
-		}
-		else if (code == "ADDF")
-		{
-			assemble_addop("addr", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
-		}
-		// Sub
-		else if (code == "SUBI")
-		{
-			assemble_addop("subi", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
-		}
-		else if (code == "SUBF")
-		{
-			assemble_addop("subr", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
-		}
-		// Mult
-		else if (code == "MULTI")
-		{
-			assemble_mulop("muli", op1, op2, &curr_reg, &mulop_temp, &output_reg);
-		}
-		else if (code == "MULTF")
-		{
-			assemble_mulop("mulr", op1, op2, &curr_reg, &mulop_temp, &output_reg);
-		}
-		// Div
-		else if (code == "DIVI")
-		{
-			assemble_mulop("divi", op1, op2, &curr_reg, &mulop_temp, &output_reg);
-		}
-		else if (code == "DIVF")
-		{
-			assemble_mulop("divr", op1, op2, &curr_reg, &mulop_temp, &output_reg);
+			IR_to_tiny(it->first);
 		}
 	}
 
 	for (vector <tinyNode>::iterator it = assembly.begin(); it != assembly.end(); ++it) // Loop through the tiny nodes in order
 	{
-		it ->print_Node();
+		it->print_Node();
 	}
-
-	cout << "sys halt";*/
-
 
 	return 0;
 }
@@ -818,6 +625,250 @@ void destroy_AST(ASTNode * n) // Destroys an AST tree
 		destroy_AST(n->right);
 		delete n;
 	}
+}
+
+void IR_to_tiny(string fid) // Takes a function name and translates the IR for that function to tiny nodes
+{
+	vector <IRNode> n = func_IR[fid];
+	int curr_reg = 0;
+	int output_reg = 0;
+	int addop_temp = 0;
+	int mulop_temp = 0;
+	string code, op1, op2, result, saved_reg;
+	for (vector <IRNode>::iterator it = n.begin(); it != n.end(); ++it) // Loop through the IR nodes in order
+	{
+		code = it->opcode;
+		op1 = it->op1;
+		op2 = it->op2;
+		result = it->result;
+
+		if (it->cmp_type == "SAVE") // This saves the register holding the value of the left side of a compare
+		{
+			saved_reg = output_reg;
+		}
+
+		// This if else chain checks the opcode and generates the corresponding tiny node.
+		if (code == "WRITEI")
+		{
+			//cout << "sys writei " << result << endl;
+			assembly.push_back(tinyNode("sys writei", result, ""));
+		}
+		else if (code == "WRITEF")
+		{
+			//cout << "sys writer " << result << endl;
+			assembly.push_back(tinyNode("sys writer", result, ""));
+		}
+		else if (code == "WRITES")
+		{
+			//cout << "sys writes " << result << endl;
+			assembly.push_back(tinyNode("sys writes", result, ""));
+		}
+		else if (code == "READI")
+		{
+			//cout << "sys readi " << result << endl;
+			assembly.push_back(tinyNode("sys readi", result, ""));
+		}
+		else if (code == "READF")
+		{
+			//cout << "sys readr " << result << endl;
+			assembly.push_back(tinyNode("sys readr", result, ""));
+		}
+		else if (code == "JUMP")
+		{
+			//cout << "jmp " << result << endl;
+			assembly.push_back(tinyNode("jmp", result, ""));
+		}
+		else if (code == "GT")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			else
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			//cout << "jgt " << result << endl;
+			assembly.push_back(tinyNode("jgt", result, ""));
+			while (!regs.empty())
+				regs.pop();
+		}
+		else if (code == "GE")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			else
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			//cout << "jge " << result << endl;
+			assembly.push_back(tinyNode("jge", result, ""));
+			while (!regs.empty())
+				regs.pop();
+		}
+		else if (code == "LT")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			else
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			//cout << "jlt " << result << endl;
+			assembly.push_back(tinyNode("jlt", result, ""));			
+			while (!regs.empty())
+				regs.pop();
+		}
+		else if (code == "LE")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			else
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			//cout << "jle " << result << endl;
+			assembly.push_back(tinyNode("jle", result, ""));
+			while (!regs.empty())
+				regs.pop();
+		}
+		else if (code == "NE")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			else
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			//cout << "jne " << result << endl;
+			assembly.push_back(tinyNode("jne", result, ""));
+			while (!regs.empty())
+				regs.pop();
+		}
+		else if (code == "EQ")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			else
+			{
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
+			//cout << "jeq " << result << endl;
+			assembly.push_back(tinyNode("jeq", result, ""));
+			while (!regs.empty())
+				regs.pop();
+		}
+		else if (code == "LABEL")
+		{
+			//cout << "label " << result << endl;
+			assembly.push_back(tinyNode("label", result, ""));
+		}
+		else if (code == "JSR")
+		{
+			assembly.push_back(tinyNode("jsr", result, ""));
+		}
+		else if (code == "PUSH")
+		{
+			assembly.push_back(tinyNode("push", result, ""));
+		}
+		else if (code == "POP")
+		{	
+			assembly.push_back(tinyNode("pop", result, ""));
+		}
+		else if (code == "LINK")
+		{
+			f = func_info[fid];
+			ss. str("");
+			ss << f.L_cnt;
+			assembly.push_back(tinyNode("link", ss.str()));
+			ss.str("");
+		}
+		else if (code == "RET")
+		{
+		}
+		else if (code == "STOREI" || code == "STOREF")
+		{
+			if (result[0] != '$') // storing into a variable
+			{
+				if (op1[0] != '$') // the op is a variable
+				{
+					//cout << "move " << op1 << " r" << curr_reg << endl;
+					//cout << "move r" << curr_reg << " " << result << endl;
+					ss << "r" << curr_reg;
+					assembly.push_back(tinyNode("move", op1, ss.str()));
+					assembly.push_back(tinyNode("move", ss.str(), result));
+					ss.str("");
+					curr_reg = curr_reg + 1;
+				}
+				else // the op is a register
+				{
+					//cout << "move r" << output_reg << " " << result << endl;
+					ss << "r" << output_reg;
+					assembly.push_back(tinyNode("move", ss.str(), result));
+					ss.str("");
+					while (!regs.empty())
+						regs.pop();
+				}
+			}
+			else // storing into a register
+			{
+				//cout << "move " << op1 << " r" << curr_reg << endl;
+				ss << "r" << curr_reg;
+				assembly.push_back(tinyNode("move", op1, ss.str()));
+				ss.str("");
+				output_reg = curr_reg;
+				regs.push(curr_reg);
+				curr_reg++;
+			}
+		}
+		// Plus
+		else if (code == "ADDI")
+		{
+			assemble_addop("addi", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
+		}
+		else if (code == "ADDF")
+		{
+			assemble_addop("addr", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
+		}
+		// Sub
+		else if (code == "SUBI")
+		{
+			assemble_addop("subi", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
+		}
+		else if (code == "SUBF")
+		{
+			assemble_addop("subr", op1, op2, &curr_reg, &addop_temp, &mulop_temp, &output_reg);
+		}
+		// Mult
+		else if (code == "MULTI")
+		{
+			assemble_mulop("muli", op1, op2, &curr_reg, &mulop_temp, &output_reg);
+		}
+		else if (code == "MULTF")
+		{
+			assemble_mulop("mulr", op1, op2, &curr_reg, &mulop_temp, &output_reg);
+		}
+		// Div
+		else if (code == "DIVI")
+		{
+			assemble_mulop("divi", op1, op2, &curr_reg, &mulop_temp, &output_reg);
+		}
+		else if (code == "DIVF")
+		{
+			assemble_mulop("divr", op1, op2, &curr_reg, &mulop_temp, &output_reg);
+		}
+	}
+
 }
 
 // Takes the IR for an addop and turns it into assembly code.
