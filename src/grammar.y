@@ -162,8 +162,8 @@ var_decl:
 					// If the scope is in a function, map the variables to a local register
 					if (scope.top() != "GLOBAL")
 					{
-						ss << "$T" << local_cnt;
-						local_cnt++;
+						ss.str("");
+						ss << "$L" << ++local_cnt;
 						var_map[*it] = ss.str();
 						ss.str("");
 					}
@@ -195,8 +195,8 @@ param_decl:
 				yyerror($2);
 			}
 			string id = $2;
-			ss << "$P" << param_cnt;
-			param_cnt++;
+			ss.str("");
+			ss << "$P" << ++param_cnt;
 			var_map[id] = ss.str();
 			ss.str("")}
 	;
@@ -262,13 +262,20 @@ read_stmt:
 write_stmt:
 	WRITE '(' id_list ')' ';' {for (vector <string>::reverse_iterator it = id_vec.rbegin(); it != id_vec.rend(); ++it)
 				{
+					string temp;
 					map <string, wrapper> m = find_symbol_table(*it);
+
+					if (var_map.count(*it) > 0) // Writing a local variable
+						temp = var_map[*it];
+					else // Writing a global variable
+						temp = *it;
+					
 					if (m[*it].vals[0] == "INT")
-						IR.push_back(IRNode("WRITEI", "", "", *it));
+						IR.push_back(IRNode("WRITEI", "", "", temp));
 					else if (m[*it].vals[0] == "FLOAT")
-						IR.push_back(IRNode("WRITEF", "", "", *it));
+						IR.push_back(IRNode("WRITEF", "", "", temp));
 					else
-						IR.push_back(IRNode("WRITES", "", "", *it));
+						IR.push_back(IRNode("WRITES", "", "", temp));
 				}
 				id_vec.clear()}
 	;
@@ -311,6 +318,7 @@ call_expr:
 					IR.push_back(IRNode("POP", "", "", ""));
 				}
 				id_vec.clear();
+				ss.str("");
 				ss << "$T" << ++reg_cnt;
 				IR.push_back(IRNode("POP", "", "", ss.str())); // Pop the return value into a new register
 				$$ = new FuncNode(ss.str());
