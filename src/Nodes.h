@@ -144,6 +144,23 @@ class VarNode : public ASTNode
 
 };
 
+class FuncNode : public ASTNode
+{
+	public:
+		FuncNode(string r)
+		{
+			reg = r;
+			node_type = "FUNC";
+			this->left = NULL;
+			this->right = NULL;
+		}
+
+		IRNode gen_IR()
+		{
+			return IRNode("", "", "", r, "FUNC");
+		}
+};
+
 class OpNode : public ASTNode
 {
 

@@ -48,8 +48,7 @@ stringstream ss; // A string stream used to make printing int/floats easier
 
 vector <string> id_vec, vars, str_const; // Each vector holds all variable names. This is used to declare the variable names at the start of the tiny code
 
-int reg_cnt = 0; // A counter used for generating the registers in the IR code
-int temp_cnt = 0; // A counter for numbering the temp registers of functions
+int reg_cnt = 0; // A counter for numbering the temp registers of functions
 int local_cnt = 0; // A counter for numbering the local varaibles of functions
 int param_cnt = 0; // A counter for numbering the parameters of functions
 map <string, string> var_map; // A map of variable names to local/parameter variable identifiers
@@ -211,7 +210,7 @@ func_declarations:
 func_decl:
 	FUNCTION any_type id	{scope.push($3); func_IR_setup($3)}
 	'(' param_decl_list ')' _BEGIN func_body
-	END {IRNode n = IR.back; if (n.opcode != "RET") IR.push_back(IRNode("RET", "", "", "")); string func_id = $3; func_IR[func_id] = IR; IR.clear(); scope.pop()}
+	END {IRNode n = IR.back(); if (n.opcode != "RET") IR.push_back(IRNode("RET", "", "", "")); string func_id = $3; func_IR[func_id] = IR; IR.clear(); scope.pop()}
 	;
 func_body:
 	decl 
@@ -279,7 +278,8 @@ return_stmt:
 				IR.push_back(IRNode("STOREI", r, "", "$R"));
 			else
 				IR.push_back(IRNode("STOREF", r, "", "$R"));
-			IR.push_back(IRNode("RET", "", "", ""))}
+			IR.push_back(IRNode("RET", "", "", ""))
+			destroy_AST($2);}
 	;
 
 expr:
@@ -300,14 +300,28 @@ postfix_expr:
 	primary {$$ = $1} | call_expr {$$ = $1}
 	;
 call_expr:
-	id '(' expr_list ')' {$$ = $3}
+	id '(' expr_list ')' {IR.push_back(IRNode("PUSH", "", "", "")); // Push space for the return value
+			      	for (vector <string>::iterator it = id_vec.begin(); it != id_vec.end(); ++it) // Push all arguments onto the stack
+				{
+					IR.push_back(IRNode("PUSH", "", "", *it));
+				}
+				IR.push_back(IRNode("JSR", "", "", $1)); // Jump to the function
+				for (vector <string>::iterator it = id_vec.begin(); it != id_vec.end(); ++it) // Pop all arguments from the stack
+				{
+					IR.push_back(IRNode("POP", "", "", ""));
+				}
+				id_vec.clear();
+				ss << "$T" << ++reg_cnt;
+				IR.push_back(IRNode("POP", "", "", ss.str())); // Pop the return value into a new register
+				$$ = new FuncNode(ss.str());
+				ss.str("");}
 	;
 expr_list:
-	expr expr_list_tail {$$ = $1}
+	expr expr_list_tail {string t; string r = ExprIR($1, &t); destroy_AST($1); id_vec.push_back(r); $$ = $1}
 	| {$$ = NULL} 
 	;
 expr_list_tail:
-	',' expr expr_list_tail {$$ = $2}
+	',' expr expr_list_tail {string t; string r = ExprIR($2, &t); destroy_AST($2); id_vec.push_back(r); $$ = $2}
 	| {$$ = NULL}
 	;
 primary:
@@ -408,13 +422,19 @@ int main(int argc, char * argv[])
 	}*/
 
 	// Print the IR code
-	cout << ";IR code" << endl;
-	for (vector <IRNode>::iterator it = IR.begin(); it != IR.end(); ++it)
+	cout << ";IR code" << endl << endl;
+	for (map <string, vector <IRNode> >::iterator it = func_IR.begin(); it != func_IR.end(); ++it)
 	{
-		it->print_Node();
+		vector <IRNode> &func = it->second;
+		for (vector <IRNode>::iterator it2 = func.begin(); it2 != func.end(); ++it2)
+		{
+			it2->print_Node();
+		}
+		cout << endl;
 	}
+
 	
-	cout << ";tiny code" << endl;
+	/*cout << ";tiny code" << endl;
 
 	// Print each int/float variable used in the assembly code
 	for (vector <string>::iterator it = vars.begin(); it != vars.end(); ++it)
@@ -650,7 +670,7 @@ int main(int argc, char * argv[])
 		it ->print_Node();
 	}
 
-	cout << "sys halt";
+	cout << "sys halt";*/
 
 
 	return 0;
