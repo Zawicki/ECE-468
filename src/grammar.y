@@ -7,6 +7,7 @@
 #include <vector>
 #include <iterator>
 #include <string>
+#include <stdlib.h>
 
 using namespace std;
 
@@ -35,6 +36,7 @@ map <string, wrapper> find_symbol_table(string id);
 void func_IR_setup(string);
 
 void IR_to_tiny(string fid);
+string tiny_opr(string func_name, string opr, int curr_reg);
 void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int * add_temp, int * mul_temp, int * output_reg);
 void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, int * temp, int * output_reg);
 void assemble_cmpi(string op1, string op2, string saved_reg, int output_reg, int * curr_reg);
@@ -630,10 +632,13 @@ void destroy_AST(ASTNode * n) // Destroys an AST tree
 void IR_to_tiny(string fid) // Takes a function name and translates the IR for that function to tiny nodes
 {
 	vector <IRNode> n = func_IR[fid];
+	f = func_info[fid];
+
 	int curr_reg = 0;
 	int output_reg = 0;
 	int addop_temp = 0;
 	int mulop_temp = 0;
+	string out_reg = "";
 	string code, op1, op2, result, saved_reg;
 	for (vector <IRNode>::iterator it = n.begin(); it != n.end(); ++it) // Loop through the IR nodes in order
 	{
@@ -651,27 +656,27 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 		if (code == "WRITEI")
 		{
 			//cout << "sys writei " << result << endl;
-			assembly.push_back(tinyNode("sys writei", result, ""));
+			assembly.push_back(tinyNode("sys writei", tiny_opr(fid, result, curr_reg), ""));
 		}
 		else if (code == "WRITEF")
 		{
 			//cout << "sys writer " << result << endl;
-			assembly.push_back(tinyNode("sys writer", result, ""));
+			assembly.push_back(tinyNode("sys writer", tiny_opr(fid, result, curr_reg), ""));
 		}
 		else if (code == "WRITES")
 		{
 			//cout << "sys writes " << result << endl;
-			assembly.push_back(tinyNode("sys writes", result, ""));
+			assembly.push_back(tinyNode("sys writes", tiny_opr(fid, result, curr_reg), ""));
 		}
 		else if (code == "READI")
 		{
 			//cout << "sys readi " << result << endl;
-			assembly.push_back(tinyNode("sys readi", result, ""));
+			assembly.push_back(tinyNode("sys readi", tiny_opr(fid, result, curr_reg), ""));
 		}
 		else if (code == "READF")
 		{
 			//cout << "sys readr " << result << endl;
-			assembly.push_back(tinyNode("sys readr", result, ""));
+			assembly.push_back(tinyNode("sys readr", tiny_opr(fid, result, curr_reg), ""));
 		}
 		else if (code == "JUMP")
 		{
@@ -775,32 +780,82 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 		}
 		else if (code == "JSR")
 		{
+			assembly.push_back(tinyNode("push" , "r0", ""));
+			assembly.push_back(tinyNode("push" , "r1", ""));
+			assembly.push_back(tinyNode("push" , "r2", ""));
+			assembly.push_back(tinyNode("push" , "r3", ""));
 			assembly.push_back(tinyNode("jsr", result, ""));
+			assembly.push_back(tinyNode("push" , "r3", ""));
+			assembly.push_back(tinyNode("push" , "r2", ""));
+			assembly.push_back(tinyNode("push" , "r1", ""));
+			assembly.push_back(tinyNode("push" , "r0", ""));
 		}
 		else if (code == "PUSH")
 		{
-			assembly.push_back(tinyNode("push", result, ""));
+			assembly.push_back(tinyNode("push", tiny_opr(fid, result, curr_reg), ""));
 		}
 		else if (code == "POP")
 		{	
-			assembly.push_back(tinyNode("pop", result, ""));
+			assembly.push_back(tinyNode("pop", tiny_opr(fid, result, curr_reg), ""));
 		}
 		else if (code == "LINK")
 		{
-			f = func_info[fid];
 			ss. str("");
 			ss << f.L_cnt;
-			assembly.push_back(tinyNode("link", ss.str()));
+			assembly.push_back(tinyNode("link", ss.str(), ""));
 			ss.str("");
 		}
 		else if (code == "RET")
 		{
+			assembly.push_back(tinyNode("unlnk", "", ""));
+			assembly.push_back(tinyNode("ret", "", ""));
 		}
 		else if (code == "STOREI" || code == "STOREF")
 		{
-			if (result[0] != '$') // storing into a variable
+			if (result[0] == '$') // storing into a register/stack value
 			{
-				if (op1[0] != '$') // the op is a variable
+				out_reg = tiny_opr(fid, result, curr_reg);
+				if (result[1] == 'T') // storing into a register
+				{
+					assembly.push_back(tinyNode("move", op1, tiny_opr(fid, result, curr_reg)));
+					output_reg = curr_reg;
+					regs.push(curr_reg);
+					curr_reg++;
+				}
+				else //  storing into a stack value
+				{
+					assembly.push_back(tinyNode("move", op1, tiny_opr(fid, result, curr_reg)));
+				}
+			}
+			else // storing into a global var
+			{
+				if (op1[0] == '$') // op is a register/stack value
+				{
+					if (op1[1] == 'T') // storing a register
+					{
+					}
+					else if (op1[1] == 'L') // storing a local variable
+					{
+					}
+					else // storing a parameter
+					{
+					}
+				}
+				else // op is a global var
+				{
+					ss << "r" << curr_reg;
+					assembly.push_back(tinyNode("move", op1, ss.str()));
+					assembly.push_back(tinyNode("move", ss.str(), result));
+					ss.str("");
+					curr_reg = curr_reg + 1;
+				}
+			}
+		}
+		/*else if (code == "STOREI" || code == "STOREF")
+		{
+			if (result[0] != '$') // storing into a global var
+			{
+				if (op1[0] != '$') // storing a global var
 				{
 					//cout << "move " << op1 << " r" << curr_reg << endl;
 					//cout << "move r" << curr_reg << " " << result << endl;
@@ -810,7 +865,7 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 					ss.str("");
 					curr_reg = curr_reg + 1;
 				}
-				else // the op is a register
+				else // storing a register
 				{
 					//cout << "move r" << output_reg << " " << result << endl;
 					ss << "r" << output_reg;
@@ -820,6 +875,7 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 						regs.pop();
 				}
 			}
+		
 			else // storing into a register
 			{
 				//cout << "move " << op1 << " r" << curr_reg << endl;
@@ -830,7 +886,7 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 				regs.push(curr_reg);
 				curr_reg++;
 			}
-		}
+		}*/
 		// Plus
 		else if (code == "ADDI")
 		{
@@ -868,7 +924,49 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 			assemble_mulop("divr", op1, op2, &curr_reg, &mulop_temp, &output_reg);
 		}
 	}
+}
 
+// takes a function name and a register/stack value from the IR and returns a string with the tiny register/stack value
+string tiny_opr(string func_name, string opr, int curr_reg)
+{
+	if op[0] == '$' // the opr is a register or stack value
+	{
+		if opr[1] == 'T' // the opr is a register
+		{
+			ss.str("");
+			ss << "r" << curr_reg;
+			string t = ss.str();
+			ss.str("");
+			
+			return t;
+		}
+		else if opr[1] == 'L' // the opr is a local variable
+		{
+			string t = "$-" + opr.substr(2, string::npos);
+			return t;
+		}
+		else if opr[1] == 'R' //  the opr is a return value
+		{
+			ss.str("")
+			ss << "$" << func_info[func_name].P_cnt + 6;
+			string t  = ss.str();
+			ss.str("");	
+
+			return t;
+		}
+		else // the opr is a parameter
+		{
+			string t = opr.substr(2, string::npos);
+			ss.str("");
+			ss.str() << "$" << atoi((char *)t) + 5;
+			t = ss.str();
+			ss.str("");
+		
+			return t;
+		}
+	}
+	else
+		return opr // the opr is a global variable
 }
 
 // Takes the IR for an addop and turns it into assembly code.
