@@ -780,15 +780,15 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 		}
 		else if (code == "JSR")
 		{
-			assembly.push_back(tinyNode("push" , "r0", ""));
 			assembly.push_back(tinyNode("push" , "r1", ""));
 			assembly.push_back(tinyNode("push" , "r2", ""));
 			assembly.push_back(tinyNode("push" , "r3", ""));
+			assembly.push_back(tinyNode("push" , "r4", ""));
 			assembly.push_back(tinyNode("jsr", result, ""));
+			assembly.push_back(tinyNode("push" , "r4", ""));
 			assembly.push_back(tinyNode("push" , "r3", ""));
 			assembly.push_back(tinyNode("push" , "r2", ""));
 			assembly.push_back(tinyNode("push" , "r1", ""));
-			assembly.push_back(tinyNode("push" , "r0", ""));
 		}
 		else if (code == "PUSH")
 		{
@@ -824,7 +824,7 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 				}
 				else //  storing into a stack value
 				{
-					assembly.push_back(tinyNode("move", op1, tiny_opr(fid, result, curr_reg)));
+					assembly.push_back(tinyNode("move",  tiny_opr(fid, op1, output_reg), tiny_opr(fid, result, curr_reg)));
 				}
 			}
 			else // storing into a global var
@@ -833,12 +833,18 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 				{
 					if (op1[1] == 'T') // storing a register
 					{
+						//cout << "move r" << output_reg << " " << result << endl;
+						ss << "r" << output_reg;
+						assembly.push_back(tinyNode("move", ss.str(), result));
+						ss.str("");
+						while (!regs.empty())
+							regs.pop();
 					}
-					else if (op1[1] == 'L') // storing a local variable
+					else // storing a stack value
 					{
-					}
-					else // storing a parameter
-					{
+						assembly.push_back(tinyNode("move", tiny_opr(fid, op1, curr_reg), result));
+						while (!regs.empty())
+							regs.pop();
 					}
 				}
 				else // op is a global var
@@ -851,42 +857,6 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 				}
 			}
 		}
-		/*else if (code == "STOREI" || code == "STOREF")
-		{
-			if (result[0] != '$') // storing into a global var
-			{
-				if (op1[0] != '$') // storing a global var
-				{
-					//cout << "move " << op1 << " r" << curr_reg << endl;
-					//cout << "move r" << curr_reg << " " << result << endl;
-					ss << "r" << curr_reg;
-					assembly.push_back(tinyNode("move", op1, ss.str()));
-					assembly.push_back(tinyNode("move", ss.str(), result));
-					ss.str("");
-					curr_reg = curr_reg + 1;
-				}
-				else // storing a register
-				{
-					//cout << "move r" << output_reg << " " << result << endl;
-					ss << "r" << output_reg;
-					assembly.push_back(tinyNode("move", ss.str(), result));
-					ss.str("");
-					while (!regs.empty())
-						regs.pop();
-				}
-			}
-		
-			else // storing into a register
-			{
-				//cout << "move " << op1 << " r" << curr_reg << endl;
-				ss << "r" << curr_reg;
-				assembly.push_back(tinyNode("move", op1, ss.str()));
-				ss.str("");
-				output_reg = curr_reg;
-				regs.push(curr_reg);
-				curr_reg++;
-			}
-		}*/
 		// Plus
 		else if (code == "ADDI")
 		{
@@ -927,14 +897,14 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 }
 
 // takes a function name and a register/stack value from the IR and returns a string with the tiny register/stack value
-string tiny_opr(string func_name, string opr, int curr_reg)
+string tiny_opr(string func_name, string opr, int reg_num)
 {
-	if op[0] == '$' // the opr is a register or stack value
+	if opr[0] == '$' // the opr is a register or stack value
 	{
 		if opr[1] == 'T' // the opr is a register
 		{
 			ss.str("");
-			ss << "r" << curr_reg;
+			ss << "r" << reg_num;
 			string t = ss.str();
 			ss.str("");
 			
@@ -958,7 +928,7 @@ string tiny_opr(string func_name, string opr, int curr_reg)
 		{
 			string t = opr.substr(2, string::npos);
 			ss.str("");
-			ss.str() << "$" << atoi((char *)t) + 5;
+			ss.str() << "$" << atoi((char *)t) + 
 			t = ss.str();
 			ss.str("");
 		
@@ -992,7 +962,7 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int *
 
 			regs.push(*curr_reg - 1);
 		}
-		else // op2 is a register
+		else // op2 is a register/stack value
 		{
 			//cout << opcode << " r" << *addop_temp << " r" << *curr_reg - 1 << endl;
 			ss << "r" << *addop_temp;
@@ -1011,7 +981,7 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int *
 		*output_reg = *curr_reg - 1;
 		*addop_temp = *curr_reg - 1;
 	}
-	else // op1 is a register
+	else // op1 is a register/stack value
 	{
 		if (op2[0] != '$') // op2 is a variable
 		{
@@ -1022,7 +992,7 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, int *
 
 			*output_reg = *curr_reg - 1;
 		}
-		else // op2 is a register
+		else // op2 is a register/stack value
 		{
 			while (!regs.empty())
 			{
