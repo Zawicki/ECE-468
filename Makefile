@@ -1,6 +1,6 @@
 CC=g++
 FR=flex_rules
-BG=grammar
+BG=new_gramm
 PROG=Micro
 
 .PHONY: all compiler scanner parser build clean

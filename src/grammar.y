@@ -899,9 +899,9 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 // takes a function name and a register/stack value from the IR and returns a string with the tiny register/stack value
 string tiny_opr(string func_name, string opr, int reg_num)
 {
-	if opr[0] == '$' // the opr is a register or stack value
+	if (opr[0] == '$') // the opr is a register or stack value
 	{
-		if opr[1] == 'T' // the opr is a register
+		if (opr[1] == 'T') // the opr is a register
 		{
 			ss.str("");
 			ss << "r" << reg_num;
@@ -910,12 +910,12 @@ string tiny_opr(string func_name, string opr, int reg_num)
 			
 			return t;
 		}
-		else if opr[1] == 'L' // the opr is a local variable
+		else if (opr[1] == 'L') // the opr is a local variable
 		{
 			string t = "$-" + opr.substr(2, string::npos);
 			return t;
 		}
-		else if opr[1] == 'R' //  the opr is a return value
+		else if (opr[1] == 'R') //  the opr is a return value
 		{
 			ss.str("");
 			ss << "$" << func_info[func_name].P_cnt + 6;

@@ -39,8 +39,8 @@ void IR_to_tiny(string fid);
 string tiny_opr(string func_name, string opr, int curr_reg);
 void assemble_addop(string opcode, string op1, string op2, int * curr_reg, string * addop_temp, string * mulop_temp, string * output_reg, string func_name);
 void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, string * temp, string * output_reg, string func_name);
-void assemble_cmpi(string op1, string op2, string saved_reg, string output_reg, int * curr_reg, string func_name);
-void assemble_cmpr(string op1, string op2, string saved_reg, string output_reg, int * curr_reg, string func_name);
+void assemble_cmpi(string op1, string op2, string saved_reg, string output_reg, int * curr_reg);
+void assemble_cmpr(string op1, string op2, string saved_reg, string output_reg, int * curr_reg);
 
 stack <string> scope; // A stack holding the current valid scopes during parsing
 stack <string> scope_help; // A stack to hold scopes when using a variable that was not declared in the current scope
@@ -686,11 +686,11 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 		{
 			if (it->cmp_type == "INT")
 			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
 			else
 			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
 			//cout << "jgt " << result << endl;
 			assembly.push_back(tinyNode("jgt", result, ""));
@@ -701,10 +701,11 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 		{
 			if (it->cmp_type == "INT")
 			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
+			}
 			else
 			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
 			//cout << "jge " << result << endl;
 			assembly.push_back(tinyNode("jge", result, ""));
@@ -715,11 +716,11 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 		{
 			if (it->cmp_type == "INT")
 			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
 			else
 			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
 			//cout << "jlt " << result << endl;
 			assembly.push_back(tinyNode("jlt", result, ""));			
@@ -730,11 +731,11 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 		{
 			if (it->cmp_type == "INT")
 			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
 			else
 			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
 			//cout << "jle " << result << endl;
 			assembly.push_back(tinyNode("jle", result, ""));
@@ -745,11 +746,11 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 		{
 			if (it->cmp_type == "INT")
 			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
 			else
 			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
 			//cout << "jne " << result << endl;
 			assembly.push_back(tinyNode("jne", result, ""));
@@ -760,11 +761,11 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 		{
 			if (it->cmp_type == "INT")
 			{
-				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpi(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
 			else
 			{
-				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg, func_name);
+				assemble_cmpr(op1, op2, saved_reg, output_reg, &curr_reg);
 			}
 			//cout << "jeq " << result << endl;
 			assembly.push_back(tinyNode("jeq", result, ""));
@@ -894,9 +895,9 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 // takes a function name and a register/stack value from the IR and returns a string with the tiny register/stack value
 string tiny_opr(string func_name, string opr, int reg_num)
 {
-	if opr[0] == '$' // the opr is a register or stack value
+	if (opr[0] == '$') // the opr is a register or stack value
 	{
-		if opr[1] == 'T' // the opr is a register
+		if (opr[1] == 'T') // the opr is a register
 		{
 			ss.str("");
 			ss << "r" << reg_num;
@@ -905,12 +906,12 @@ string tiny_opr(string func_name, string opr, int reg_num)
 			
 			return t;
 		}
-		else if opr[1] == 'L' // the opr is a local variable
+		else if (opr[1] == 'L') // the opr is a local variable
 		{
 			string t = "$-" + opr.substr(2, string::npos);
 			return t;
 		}
-		else if opr[1] == 'R' //  the opr is a return value
+		else if (opr[1] == 'R') //  the opr is a return value
 		{
 			ss.str("");
 			ss << "$" << func_info[func_name].P_cnt + 6;
@@ -923,7 +924,7 @@ string tiny_opr(string func_name, string opr, int reg_num)
 		{
 			string t = opr.substr(2, string::npos);
 			ss.str("");
-			ss.str() << "$" << atoi((char *)t) + 
+			ss << "$" << atoi(t.c_str()) + 6; 
 			t = ss.str();
 			ss.str("");
 		
@@ -931,7 +932,7 @@ string tiny_opr(string func_name, string opr, int reg_num)
 		}
 	}
 	else
-		return opr // the opr is a global variable
+		return opr; // the opr is a global variable
 }
 
 // Takes the IR for an addop and turns it into assembly code.
@@ -1043,7 +1044,7 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, strin
 				}
 				regs.push(ss.str());
 				*output_reg = ss.str();
-				*addop_temp = ss.str();
+				*temp = ss.str();
 				ss.str("");
 			}
 			else// op2 is a stack variable
@@ -1056,7 +1057,7 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, strin
 				}
 				regs.push(t);
 				*output_reg = t;
-				*addop_temp = t;
+				*temp = t;
 			}
 		}
 	}
@@ -1084,7 +1085,7 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, strin
 }
 
 // Takes the IR for an integer compare and generates assembly code.
-void assemble_cmpi(string op1, string op2, string saved_reg, string output_reg, int * curr_reg, func_name)
+void assemble_cmpi(string op1, string op2, string saved_reg, string output_reg, int * curr_reg)
 {
 	if (op1[0] != '$' && op2[0] != '$') // op1 and op2 are variables
 	{
@@ -1110,7 +1111,7 @@ void assemble_cmpi(string op1, string op2, string saved_reg, string output_reg, 
 }
 
 // Takes the IR for an float compare and generates assembly code.
-void assemble_cmpr(string op1, string op2, string saved_reg, string output_reg, int * curr_reg, func_name)
+void assemble_cmpr(string op1, string op2, string saved_reg, string output_reg, int * curr_reg)
 {
 	if (op1[0] != '$' && op2[0] != '$') // op1 and op2 are variables
 	{
