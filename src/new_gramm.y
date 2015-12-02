@@ -931,11 +931,10 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, strin
 		string t = ss.str();
 		ss.str("");
 		assembly.push_back(tinyNode("move", tiny_opr(func_name, op1, *curr_reg), t));
-		*addop_temp = t;
 
 		*curr_reg = *curr_reg + 1;
 
-		if (op2[0] != '$' || op1[1] != 'T') // op2 is a variable or stack value
+		if (op2[0] != '$' || op2[1] != 'T') // op2 is a variable or stack value
 		{
 				assembly.push_back(tinyNode(opcode, tiny_opr(func_name, op2, *curr_reg - 1), t));
 				regs.push(t);
@@ -944,7 +943,7 @@ void assemble_addop(string opcode, string op1, string op2, int * curr_reg, strin
 		}
 		else // op2 is a register
 		{
-			assembly.push_back(tinyNode(opcode, *addop_temp, t));
+			assembly.push_back(tinyNode(opcode, *output_reg, t));
 			if (!regs.empty()) 
 			{
 				regs.pop();
@@ -989,11 +988,10 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, strin
 		string t = ss.str();
 		ss.str("");
 		assembly.push_back(tinyNode("move", tiny_opr(func_name, op1, *curr_reg), t));
-		*temp = t;
 
 		*curr_reg = *curr_reg + 1;
 
-		if (op2[0] != '$' || op1[1] != 'T') // op2 is a variable or a stack value
+		if (op2[0] != '$' || op2[1] != 'T') // op2 is a variable or a stack value
 		{
 			assembly.push_back(tinyNode(opcode, tiny_opr(func_name, op2, *curr_reg - 1), t));
 			regs.push(t);
@@ -1003,7 +1001,7 @@ void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, strin
 		}
 		else // op2 is a register
 		{
-			assembly.push_back(tinyNode(opcode, *temp, t));
+			assembly.push_back(tinyNode(opcode, *output_reg, t));
 			if (!regs.empty()) 
 			{
 				regs.pop();
