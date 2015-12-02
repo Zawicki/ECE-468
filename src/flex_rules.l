@@ -1,6 +1,6 @@
 %{
 #include <iostream>
-#include "new_gramm.tab.h"
+#include "grammar.tab.h"
 using namespace std;
 #define YY_DECL extern "C" int yylex(void)
 int line_num = 1;
