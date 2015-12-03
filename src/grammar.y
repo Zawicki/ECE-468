@@ -74,7 +74,6 @@ stack <string> labels; // Holds the labels for control flow statements
 	void makeIR(ASTNode * n);
 	string ExprIR(ASTNode * n, string * t);
 	void destroy_AST(ASTNode * n);
-	void gen_kill(IRNode * n);
 }
 
 %code 
@@ -82,6 +81,7 @@ stack <string> labels; // Holds the labels for control flow statements
 vector <IRNode> IR; // Holds the nodes for the IR code
 vector <tinyNode> assembly; // Holds the nodes for the tiny code
 map <string, vector <IRNode> > func_IR; // maps a function name to a vector of its IR nodes
+stack <IRNode *> else_lbl;
 }
 
 %union
@@ -366,9 +366,9 @@ mulop:
 if_stmt:
 	IF  {push_block()}
 	'(' cond ')' 
-	decl stmt_list {ss.str(""); ss << "label" << lbl_cnt++; IRNode * j = new IRNode("JUMP", "", "", ss.str()); IRNode * l = new IRNode("LABEL", "", "", ss.str()); j->next = l; l->prev = j; IR.push_back(*j);
+	decl stmt_list {ss.str(""); ss << "label" << lbl_cnt++; IRNode * j = new IRNode("JUMP", "", "", ss.str()); IRNode * l = new IRNode("LABEL", "", "", ss.str()); j->next = l; l->prev = j; IR.push_back(*j); else_lbl.push(l);
 					IRNode * n = new IRNode("LABEL", "", "", labels.top()); IR.push_back(*n); labels.pop(); labels.push(ss.str()); $4->next = n; n->prev = $4}
-	else_part {IR.push_back(*l); labels.pop()}
+	else_part {IR.push_back(*else_lbl.top()); labels.pop(); else_lbl.pop()}
 	FI {scope.pop()}
 	;
 else_part:
@@ -460,8 +460,41 @@ int main(int argc, char * argv[])
 		vector <IRNode> &func = it->second;
 		for (vector <IRNode>::iterator it2 = func.begin(); it2 != func.end(); ++it2)
 		{
-			it2->print_Node();
-			gen_kill(it2);
+			string opcode, op1, op2, result;
+			opcode = it2->opcode;
+			op1 = it2->op1;
+			op2 = it2->op2;
+			result = it2->result;
+
+			if (opcode != "")
+			{
+				if (opcode == "PUSH" || opcode == "WRITEI" || opcode == "WRITEF" ||  opcode == "WRITES")
+				{
+					it2->gen.insert(result);
+				}
+				else if (opcode == "POP" || opcode == "READI" || opcode == "READF")
+				{
+					it2->kill.insert(result);
+				}
+				else if (opcode == "JSR")
+				{
+					for (vector <string>::iterator it3 = vars.begin(); it3 != vars.end(); ++it3)
+					{
+						it2->gen.insert(*it3);
+					}
+				}
+				else if (opcode != "LABEL" && opcode != "JUMP" && opcode != "LINK" && opcode != "RET")
+				{
+					if (!isdigit(op1[0]) && op1 != "")
+						it2->gen.insert(op1);
+					if (!isdigit(op2[0]) && op2 != "")
+						it2->gen.insert(op2);
+					it2->kill.insert(result);
+				}
+
+				it2->print_Node();
+			}
+			
 		}
 		cout << endl;
 	}
@@ -642,40 +675,6 @@ void destroy_AST(ASTNode * n) // Destroys an AST tree
 		destroy_AST(n->left);
 		destroy_AST(n->right);
 		delete n;
-	}
-}
-
-void gen_kill(IRNode * n)
-{
-	string opcode, op1, op2, result;
-	opcode = n->opcode;
-	op1 = n->op1;
-	op2 = n->op2;
-	result = n->result;
-
-	if (opcode != "")
-	{
-		if (opcode == "PUSH" || opcode == "WRITEI" || opcode == "WRITEF")
-		{
-			n->gen.insert(result);
-		}
-		else if (opcode == "POP" || opcode == "READI" || opcode == "READF")
-		{
-			n->kill.insert(result);
-		}
-		else if (opcode == "JSR")
-		{
-			for (vector <string>::iterator it = vars.begin(); it != vars.end(); ++it)
-			{
-				n->gen.insert(it->first);
-			}
-		}
-		else
-		{
-			n->gen.insert(op1);
-			n->gen.insert(op2);
-			n->kill.insert(result);
-		}
 	}
 }
 

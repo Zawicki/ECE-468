@@ -1,5 +1,5 @@
 #include <iostream>
-#include <unordered_set>
+#include <set>
 using namespace std;
 
 class tinyNode
@@ -39,7 +39,10 @@ class IRNode
 		string op2;
 		string result;
 		string cmp_type;
-		unordered_set <string> gen, kill, in, out;
+		set <string> gen;
+		set <string> kill;
+		set <string> in;
+		set <string> out;
 		IRNode * prev;
 		IRNode * next;
 
@@ -75,7 +78,32 @@ class IRNode
 					cout << " " << op1;
 				if (op2 != "")
 					cout << " " << op2;
-				cout << " " << result << endl; 
+				cout << " " << result;
+				if (!gen.empty())
+				{
+					cout << " GEN:";
+					for (set <string>::iterator it = gen.begin(); it != gen.end(); ++it)
+					{
+						cout << " " << *it;
+					}
+				}
+				if (!kill.empty())
+				{
+					cout << " KILL:";
+					for (set <string>::iterator it2 = kill.begin(); it2 != kill.end(); ++it2)
+					{
+						cout << " " << *it2;
+					}
+				}
+				if (this->prev != NULL)
+				{
+					cout << " PREV: " << this->prev->opcode << " " << this->prev->result;
+				}
+				if (this->next != NULL)
+				{
+					cout << " NEXT: " << this->next->opcode << " " << this->next->result;
+				}
+				cout << endl; 
 			}
 		}
 };
