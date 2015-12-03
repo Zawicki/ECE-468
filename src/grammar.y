@@ -74,6 +74,7 @@ stack <string> labels; // Holds the labels for control flow statements
 	void makeIR(ASTNode * n);
 	string ExprIR(ASTNode * n, string * t);
 	void destroy_AST(ASTNode * n);
+	void gen_kill(IRNode * n);
 }
 
 %code 
@@ -88,7 +89,8 @@ map <string, vector <IRNode> > func_IR; // maps a function name to a vector of i
 	int ival;
 	float fval;
 	char *sval;
-	ASTNode *AST_ptr;
+	ASTNode * AST_ptr;
+	IRNode * IR_ptr;
 }
 
 %token PROGRAM
@@ -121,6 +123,8 @@ map <string, vector <IRNode> > func_IR; // maps a function name to a vector of i
 %type <sval> id str var_type compop
 %type <AST_ptr> primary postfix_expr call_expr expr_list expr_list_tail addop mulop
 %type <AST_ptr> init_stmt incr_stmt assign_expr factor factor_prefix expr_prefix expr
+%type <IR_ptr> cond
+
 %%
 
 program:
@@ -362,8 +366,9 @@ mulop:
 if_stmt:
 	IF  {push_block()}
 	'(' cond ')' 
-	decl stmt_list {ss.str(""); ss << "label" << lbl_cnt++; IR.push_back(IRNode("JUMP", "", "", ss.str())); IR.push_back(IRNode("LABEL", "", "", labels.top())); labels.pop(); labels.push(ss.str())}
-	else_part {IR.push_back(IRNode("LABEL", "", "", labels.top())); labels.pop()}
+	decl stmt_list {ss.str(""); ss << "label" << lbl_cnt++; IRNode * j = new IRNode("JUMP", "", "", ss.str()); IRNode * l = new IRNode("LABEL", "", "", ss.str()); j->next = l; l->prev = j; IR.push_back(*j);
+					IRNode * n = new IRNode("LABEL", "", "", labels.top()); IR.push_back(*n); labels.pop(); labels.push(ss.str()); $4->next = n; n->prev = $4}
+	else_part {IR.push_back(*l); labels.pop()}
 	FI {scope.pop()}
 	;
 else_part:
@@ -372,7 +377,10 @@ else_part:
 	stmt_list {scope.pop()} |
 	;
 cond:
-	expr compop expr {string t; string op1 = ExprIR($1, &t); IR.push_back(IRNode("", "", "", "", "SAVE")); string op2 = ExprIR($3, &t); ss.str(""); ss << "label" << lbl_cnt++;  IR.push_back(IRNode($2, op1, op2, ss.str(), t)); labels.push(ss.str()); destroy_AST($1); destroy_AST($3)}
+	expr compop expr {string t; string op1 = ExprIR($1, &t); IR.push_back(IRNode("", "", "", "", "SAVE")); 
+						string op2 = ExprIR($3, &t); ss.str(""); ss << "label" << lbl_cnt++;
+						IRNode * n = new IRNode($2, op1, op2, ss.str(), t); IR.push_back(*n); $$ = n; 
+						labels.push(ss.str()); destroy_AST($1); destroy_AST($3)}
 	;
 compop:
 	'<' {$$ = (char *)"GE"} | '>' {$$ = (char *)"LE"} | '=' {$$ = (char *)"NE"} | NEQ {$$ = (char *)"EQ"} | LEQ {$$ = (char *)"GT"} | GEQ {$$ = (char *)"LT"}
@@ -388,11 +396,15 @@ incr_stmt:
 for_stmt:
 	FOR  {push_block()}
 	'(' 
-	init_stmt ';' {makeIR($4); destroy_AST($4); ss.str(""); ss << "label" << lbl_cnt++; labels.push(ss.str()); IR.push_back(IRNode("LABEL", "", "", ss.str()))}
+	init_stmt ';' {makeIR($4); destroy_AST($4); 
+					ss.str(""); ss << "label" << lbl_cnt++; labels.push(ss.str()); 
+					IR.push_back(IRNode("LABEL", "", "", ss.str()))}
 	cond ';'
 	incr_stmt 
 	')' 
-	decl stmt_list {makeIR($9); destroy_AST($9); string temp = labels.top(); labels.pop(); IR.push_back(IRNode("JUMP", "", "", labels.top())); labels.push(temp); IR.push_back(IRNode("LABEL", "", "", temp))}
+	decl stmt_list {makeIR($9); destroy_AST($9); 
+					string temp = labels.top(); labels.pop(); IR.push_back(IRNode("JUMP", "", "", labels.top())); 
+					labels.push(temp); IR.push_back(IRNode("LABEL", "", "", temp))}
 	ROF	{scope.pop()}
 	;
 
@@ -402,7 +414,7 @@ int main(int argc, char * argv[])
 {
 	if (argc != 2)
 	{
-		cout << endl << "Invalid number of arguments" << endl;
+		cout << endl << "Uasge: ./Micro <file to compile>" << endl;
 		return -1;
 	}
 
@@ -441,7 +453,7 @@ int main(int argc, char * argv[])
 		}
 	}*/
 
-	// Print the IR code
+	// Print the IR code and get the GEN and KILL sets for each node
 	cout << ";IR code" << endl << endl;
 	for (map <string, vector <IRNode> >::iterator it = func_IR.begin(); it != func_IR.end(); ++it)
 	{
@@ -449,10 +461,12 @@ int main(int argc, char * argv[])
 		for (vector <IRNode>::iterator it2 = func.begin(); it2 != func.end(); ++it2)
 		{
 			it2->print_Node();
+			gen_kill(it2);
 		}
 		cout << endl;
 	}
 	
+	// Start of tiny code
 	cout << ";tiny code" << endl;
 
 	// Print each global int/float variable used in the assembly code
@@ -476,6 +490,7 @@ int main(int argc, char * argv[])
 	assembly.push_back(tinyNode("jsr", "", "main"));
 	assembly.push_back(tinyNode("sys halt", "", ""));
 
+	// Generate the tiny code
 	IR_to_tiny("main");
 	for (map <string, vector <IRNode> >::iterator it = func_IR.begin(); it != func_IR.end(); ++it)
 	{
@@ -485,6 +500,7 @@ int main(int argc, char * argv[])
 		}
 	}
 
+	// Print the tiny code
 	for (vector <tinyNode>::iterator it = assembly.begin(); it != assembly.end(); ++it) // Loop through the tiny nodes in order
 	{
 		it->print_Node();
@@ -626,6 +642,40 @@ void destroy_AST(ASTNode * n) // Destroys an AST tree
 		destroy_AST(n->left);
 		destroy_AST(n->right);
 		delete n;
+	}
+}
+
+void gen_kill(IRNode * n)
+{
+	string opcode, op1, op2, result;
+	opcode = n->opcode;
+	op1 = n->op1;
+	op2 = n->op2;
+	result = n->result;
+
+	if (opcode != "")
+	{
+		if (opcode == "PUSH" || opcode == "WRITEI" || opcode == "WRITEF")
+		{
+			n->gen.insert(result);
+		}
+		else if (opcode == "POP" || opcode == "READI" || opcode == "READF")
+		{
+			n->kill.insert(result);
+		}
+		else if (opcode == "JSR")
+		{
+			for (vector <string>::iterator it = vars.begin(); it != vars.end(); ++it)
+			{
+				n->gen.insert(it->first);
+			}
+		}
+		else
+		{
+			n->gen.insert(op1);
+			n->gen.insert(op2);
+			n->kill.insert(result);
+		}
 	}
 }
 

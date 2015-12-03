@@ -1,4 +1,5 @@
 #include <iostream>
+#include <unordered_set>
 using namespace std;
 
 class tinyNode
@@ -38,6 +39,10 @@ class IRNode
 		string op2;
 		string result;
 		string cmp_type;
+		unordered_set <string> gen, kill, in, out;
+		IRNode * prev;
+		IRNode * next;
+
 
 		IRNode(string op, string o1, string o2, string r)
 		{
@@ -46,6 +51,8 @@ class IRNode
 			op2 = o2;
 			result = r;
 			cmp_type = "none";
+			this->prev = NULL;
+			this->next = NULL;
 		}	
 
 		IRNode(string op, string o1, string o2, string r, string t)
@@ -55,6 +62,8 @@ class IRNode
 			op2 = o2;
 			result = r;
 			cmp_type = t;
+			this->prev = NULL;
+			this->next = NULL;
 		}	
 
 		void print_Node()
