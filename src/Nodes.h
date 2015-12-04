@@ -75,7 +75,20 @@ class IRNode
 				if (op2 != "")
 					cout << " " << op2;
 				cout << " " << result;
-				if (!gen.empty())
+
+				/*cout << "\n\tLIVE-IN:";
+				for (set <string>::iterator it = in.begin(); it != in.end(); ++it)
+				{
+					cout << " " << *it;
+				}*/
+
+				cout << "\n\tLIVE VARS:";
+				for (set <string>::iterator it2 = in.begin(); it2 != in.end(); ++it2)
+				{
+					cout << " " << *it2;
+				}
+	
+				/*if (!gen.empty())
 				{
 					cout << " GEN:";
 					for (set <string>::iterator it = gen.begin(); it != gen.end(); ++it)
@@ -108,7 +121,7 @@ class IRNode
 						cout << " " << (*it4)->opcode << " " << (*it4)->result;
 					}
 
-				}
+				}*/
 				cout << endl; 
 			}
 		}

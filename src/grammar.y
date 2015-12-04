@@ -457,11 +457,11 @@ int main(int argc, char * argv[])
 		}
 	}*/
 
-	//vector <IRNode *> work_list;
+	vector <IRNode *> worklist;
 	for (map <string, vector <IRNode> >::iterator it = func_IR.begin(); it != func_IR.end(); ++it)
 	{
 		vector <IRNode> &func = it->second;
-		// This loop creates the GEN and KILL sets, fills out the CFG, and puts nodes in the worklist, also 
+		// This loop creates the GEN and KILL sets, fills out the CFG, and puts nodes in the worklist, also sets the live-out set for return statements
 		for (vector <IRNode>::iterator it2 = func.begin(); it2 != func.end(); ++it2)
 		{
 			string opcode, op1, op2, result;
@@ -497,30 +497,28 @@ int main(int argc, char * argv[])
 						it2->kill.insert(result);
 				}
 				
-				int i = 1;
+				int num = 1;
 				IRNode * prev;
 				IRNode * next;
 				// find prev IR
 				if (it2 != func.begin())
 				{
-					while ((*(it2 - i)).opcode == "")
+					while ((*(it2 - num)).opcode == "")
 					{
-						i--;
+						num--;
 					}
-					prev = (&(*(it2 - i)));
-
+					prev = (&(*(it2 - num)));
 				}
 						
-				i = 1;
+				num = 1;
 				// find next IR
 				if (it2 != (func.end() - 1))
 				{
-					while ((*(it2 + i)).opcode == "")
+					while ((*(it2 + num)).opcode == "")
 					{
-						i++;
+						num++;
 					}
-					next = (&(*(it2 + i)));
-
+					next = (&(*(it2 + num)));
 				}
 				
 				if (opcode == "RET")
@@ -543,10 +541,65 @@ int main(int argc, char * argv[])
 				{
 					it2->prev.insert(prev); // insert the previous element
 				}
+				
+				worklist.push_back(&(*it2));
 			}
 		}
+		// Liveness computation
+		// 1. Get a node
+		// 2. Compute live-in and live-out sets 
+		// live-in = live-out vars - KILL vars + GEN vars
+		// live-out = union of vars that are live-in to successor
+		// 3. if the live-in set is updated in step 2, put all predecessors on the worklist
+		// 4. Repeat steps 2 and 3 until worklist is empty
+		while(!worklist.empty())
+		{
+			IRNode * n = *(worklist.begin()); // select the first node on the worklist
+			IRNode * prv;
+			IRNode * nxt;
+			
+			set <IRNode *>::iterator i;
+			set <string>::iterator j;
+			set <string>::iterator st;
+		
+			set <string> live_in_copy(n->in);
+
+			// computing the live-out set
+			for (i = n->next.begin(); i != n->next.end(); ++i) // loop through each successor
+			{
+				nxt = *i;
+				for (j = nxt->in.begin(); j != nxt->in.end(); ++j) // loop through the live-in set of the successor
+				{
+					n->out.insert(*j); // add the element to the live-out set
+					n->in.insert(*j); // add each item of the live-out set, this saves some loop iterations
+				}
+			}
+
+			// compute the live-in set
+			for (j = n->kill.begin(); j != n->kill.end(); ++j)
+			{
+				st = n->in.find(*j); // get an iterator to the element
+				if (st != n->in.end())
+					n->in.erase(st); // remove each KILL var
+			}
+			for (j = n->gen.begin(); j != n->gen.end(); ++j)
+			{
+				n->in.insert(*j); // add each GEN var
+			}
+
+			if (live_in_copy != n->in) // if the live-in set changed, put all predecessors on the worklist
+			{
+				for (i = n->prev.begin(); i != n->prev.end(); ++i) // loop through each predecessor
+				{
+					worklist.push_back(*i); // add the predeccessor to the worklist
+				}
+			}
+			
+
+			worklist.erase(worklist.begin()); // remove the node from the worklist
+		}
 	}
-	
+
 	//Print the IR nodes
 	cout << ";IR code" << endl << endl;
 	for (map <string, vector <IRNode> >::iterator it = func_IR.begin(); it != func_IR.end(); ++it)
