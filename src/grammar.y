@@ -81,7 +81,7 @@ stack <string> labels; // Holds the labels for control flow statements
 vector <IRNode> IR; // Holds the nodes for the IR code
 vector <tinyNode> assembly; // Holds the nodes for the tiny code
 map <string, vector <IRNode> > func_IR; // maps a function name to a vector of its IR nodes
-stack <IRNode *> else_lbl;
+stack <IRNode *> lbl_nodes;
 }
 
 %union
@@ -365,10 +365,13 @@ mulop:
 
 if_stmt:
 	IF  {push_block()}
-	'(' cond ')' 
-	decl stmt_list {ss.str(""); ss << "label" << lbl_cnt++; IRNode * j = new IRNode("JUMP", "", "", ss.str()); IRNode * l = new IRNode("LABEL", "", "", ss.str()); j->next = l; l->prev = j; IR.push_back(*j); else_lbl.push(l);
-					IRNode * n = new IRNode("LABEL", "", "", labels.top()); IR.push_back(*n); labels.pop(); labels.push(ss.str()); $4->next = n; n->prev = $4}
-	else_part {IR.push_back(*else_lbl.top()); labels.pop(); else_lbl.pop()}
+	'(' cond ')'	{IRNode * n = new IRNode("LABEL", "", "", labels.top()); labels.pop(); 
+			$4->next = n; n->prev = $4; IR.push_back(*$4); lbl_nodes.push(n)} 
+	decl stmt_list	{ss.str(""); ss << "label" << lbl_cnt++; 
+			IRNode * j = new IRNode("JUMP", "", "", ss.str()); IRNode * l = new IRNode("LABEL", "", "", ss.str());
+			j->next = l; l->prev = j; IR.push_back(*j); 
+			IR.push_back(*lbl_nodes.top()); lbl_nodes.pop(); lbl_nodes.push(l)}
+	else_part {IR.push_back(*lbl_nodes.top()); lbl_nodes.pop()}
 	FI {scope.pop()}
 	;
 else_part:
@@ -377,10 +380,10 @@ else_part:
 	stmt_list {scope.pop()} |
 	;
 cond:
-	expr compop expr {string t; string op1 = ExprIR($1, &t); IR.push_back(IRNode("", "", "", "", "SAVE")); 
-						string op2 = ExprIR($3, &t); ss.str(""); ss << "label" << lbl_cnt++;
-						IRNode * n = new IRNode($2, op1, op2, ss.str(), t); IR.push_back(*n); $$ = n; 
-						labels.push(ss.str()); destroy_AST($1); destroy_AST($3)}
+	expr compop expr	{string t; string op1 = ExprIR($1, &t); IR.push_back(IRNode("", "", "", "", "SAVE")); 
+				string op2 = ExprIR($3, &t); ss.str(""); ss << "label" << lbl_cnt++;
+				IRNode * n = new IRNode($2, op1, op2, ss.str(), t); $$ = n; 
+				labels.push(ss.str()); destroy_AST($1); destroy_AST($3)}
 	;
 compop:
 	'<' {$$ = (char *)"GE"} | '>' {$$ = (char *)"LE"} | '=' {$$ = (char *)"NE"} | NEQ {$$ = (char *)"EQ"} | LEQ {$$ = (char *)"GT"} | GEQ {$$ = (char *)"LT"}
@@ -396,15 +399,16 @@ incr_stmt:
 for_stmt:
 	FOR  {push_block()}
 	'(' 
-	init_stmt ';' {makeIR($4); destroy_AST($4); 
-					ss.str(""); ss << "label" << lbl_cnt++; labels.push(ss.str()); 
-					IR.push_back(IRNode("LABEL", "", "", ss.str()))}
-	cond ';'
+	init_stmt ';'	{makeIR($4); destroy_AST($4); 
+			ss.str(""); ss << "label" << lbl_cnt++; IRNode * n = new IRNode("LABEL", "", "", ss.str());
+			IRNode * j = new IRNode("JUMP", "", "", ss.str()); j->next = n; n->prev = j;
+			lbl_nodes.push(j); IR.push_back(*n)}
+	cond ';'	{IRNode * n = new IRNode("LABEL", "", "", labels.top()); labels.pop(); 
+			$7->next = n; n->prev = $7; IR.push_back(*$7); lbl_nodes.push(n)} 
 	incr_stmt 
 	')' 
-	decl stmt_list {makeIR($9); destroy_AST($9); 
-					string temp = labels.top(); labels.pop(); IR.push_back(IRNode("JUMP", "", "", labels.top())); 
-					labels.push(temp); IR.push_back(IRNode("LABEL", "", "", temp))}
+	decl stmt_list	{makeIR($10); destroy_AST($10); IRNode * l = lbl_nodes.top(); lbl_nodes.pop();
+			IRNode * j = lbl_nodes.top(); IR.push_back(*j); lbl_nodes.pop(); IR.push_back(*l)}
 	ROF	{scope.pop()}
 	;
 
@@ -489,7 +493,8 @@ int main(int argc, char * argv[])
 						it2->gen.insert(op1);
 					if (!isdigit(op2[0]) && op2 != "")
 						it2->gen.insert(op2);
-					it2->kill.insert(result);
+					if (opcode != "GT" && opcode != "GE" && opcode != "LT" && opcode != "LE" && opcode != "EQ" && opcode != "NE")
+						it2->kill.insert(result);
 				}
 
 				it2->print_Node();
