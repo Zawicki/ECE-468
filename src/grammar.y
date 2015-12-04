@@ -366,10 +366,10 @@ mulop:
 if_stmt:
 	IF  {push_block()}
 	'(' cond ')'	{IRNode * n = new IRNode("LABEL", "", "", labels.top()); labels.pop(); 
-			$4->next = n; n->prev = $4; IR.push_back(*$4); lbl_nodes.push(n)} 
+			$4->next.insert(n); n->prev.insert($4); IR.push_back(*$4); lbl_nodes.push(n)} 
 	decl stmt_list	{ss.str(""); ss << "label" << lbl_cnt++; 
 			IRNode * j = new IRNode("JUMP", "", "", ss.str()); IRNode * l = new IRNode("LABEL", "", "", ss.str());
-			j->next = l; l->prev = j; IR.push_back(*j); 
+			j->next.insert(l); l->prev.insert(j); IR.push_back(*j); 
 			IR.push_back(*lbl_nodes.top()); lbl_nodes.pop(); lbl_nodes.push(l)}
 	else_part {IR.push_back(*lbl_nodes.top()); lbl_nodes.pop()}
 	FI {scope.pop()}
@@ -380,9 +380,9 @@ else_part:
 	stmt_list {scope.pop()} |
 	;
 cond:
-	expr compop expr	{string t; string op1 = ExprIR($1, &t); IR.push_back(IRNode("", "", "", "", "SAVE")); 
+	expr compop expr	{string t; string op1 = ExprIR($1, &t); IR.push_back(IRNode("", "", "", "", "SAVE"));
 				string op2 = ExprIR($3, &t); ss.str(""); ss << "label" << lbl_cnt++;
-				IRNode * n = new IRNode($2, op1, op2, ss.str(), t); $$ = n; 
+				IRNode * n = new IRNode($2, op1, op2, ss.str(), t); $$ = n;
 				labels.push(ss.str()); destroy_AST($1); destroy_AST($3)}
 	;
 compop:
@@ -401,10 +401,10 @@ for_stmt:
 	'(' 
 	init_stmt ';'	{makeIR($4); destroy_AST($4); 
 			ss.str(""); ss << "label" << lbl_cnt++; IRNode * n = new IRNode("LABEL", "", "", ss.str());
-			IRNode * j = new IRNode("JUMP", "", "", ss.str()); j->next = n; n->prev = j;
+			IRNode * j = new IRNode("JUMP", "", "", ss.str()); j->next.insert(n); n->prev.insert(j);
 			lbl_nodes.push(j); IR.push_back(*n)}
-	cond ';'	{IRNode * n = new IRNode("LABEL", "", "", labels.top()); labels.pop(); 
-			$7->next = n; n->prev = $7; IR.push_back(*$7); lbl_nodes.push(n)} 
+	cond ';'	{IRNode * n = new IRNode("LABEL", "", "", labels.top()); labels.pop();
+			$7->next.insert(n); n->prev.insert($7); IR.push_back(*$7); lbl_nodes.push(n)}
 	incr_stmt 
 	')' 
 	decl stmt_list	{makeIR($10); destroy_AST($10); IRNode * l = lbl_nodes.top(); lbl_nodes.pop();
@@ -457,11 +457,11 @@ int main(int argc, char * argv[])
 		}
 	}*/
 
-	// Print the IR code and get the GEN and KILL sets for each node
-	cout << ";IR code" << endl << endl;
+	//vector <IRNode *> work_list;
 	for (map <string, vector <IRNode> >::iterator it = func_IR.begin(); it != func_IR.end(); ++it)
 	{
 		vector <IRNode> &func = it->second;
+		// This loop creates the GEN and KILL sets, fills out the CFG, and puts nodes in the worklist, also 
 		for (vector <IRNode>::iterator it2 = func.begin(); it2 != func.end(); ++it2)
 		{
 			string opcode, op1, op2, result;
@@ -496,14 +496,70 @@ int main(int argc, char * argv[])
 					if (opcode != "GT" && opcode != "GE" && opcode != "LT" && opcode != "LE" && opcode != "EQ" && opcode != "NE")
 						it2->kill.insert(result);
 				}
+				
+				int i = 1;
+				IRNode * prev;
+				IRNode * next;
+				// find prev IR
+				if (it2 != func.begin())
+				{
+					while ((*(it2 - i)).opcode == "")
+					{
+						i--;
+					}
+					prev = (&(*(it2 - i)));
 
-				it2->print_Node();
+				}
+						
+				i = 1;
+				// find next IR
+				if (it2 != (func.end() - 1))
+				{
+					while ((*(it2 + i)).opcode == "")
+					{
+						i++;
+					}
+					next = (&(*(it2 + i)));
+
+				}
+				
+				if (opcode == "RET")
+				{
+					for (vector <string>::iterator it3 = vars.begin(); it3 != vars.end(); ++it3)
+					{
+						it2->out.insert(*it3); // initialize the live-out set to the global variables
+					}
+					it2->prev.insert(prev); // insert the previous element
+				}
+				else if (opcode != "JUMP")
+				{
+					if (it2 != func.begin() && prev->opcode != "JUMP")
+					{
+						it2->prev.insert(prev); // insert the previous element
+					}
+					it2->next.insert(next); // insert the next element
+				}
+				else
+				{
+					it2->prev.insert(prev); // insert the previous element
+				}
 			}
-			
+		}
+	}
+	
+	//Print the IR nodes
+	cout << ";IR code" << endl << endl;
+	for (map <string, vector <IRNode> >::iterator it = func_IR.begin(); it != func_IR.end(); ++it)
+	{
+		vector <IRNode> &func = it->second;
+		for (vector <IRNode>::iterator it2 = func.begin(); it2 != func.end(); ++it2)
+		{
+			it2->print_Node();
 		}
 		cout << endl;
 	}
-	
+
+
 	// Start of tiny code
 	cout << ";tiny code" << endl;
 

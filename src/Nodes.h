@@ -43,8 +43,8 @@ class IRNode
 		set <string> kill;
 		set <string> in;
 		set <string> out;
-		IRNode * prev;
-		IRNode * next;
+		set <IRNode *> prev;
+		set <IRNode *> next;
 
 
 		IRNode(string op, string o1, string o2, string r)
@@ -54,8 +54,6 @@ class IRNode
 			op2 = o2;
 			result = r;
 			cmp_type = "none";
-			this->prev = NULL;
-			this->next = NULL;
 		}	
 
 		IRNode(string op, string o1, string o2, string r, string t)
@@ -65,8 +63,6 @@ class IRNode
 			op2 = o2;
 			result = r;
 			cmp_type = t;
-			this->prev = NULL;
-			this->next = NULL;
 		}	
 
 		void print_Node()
@@ -95,13 +91,23 @@ class IRNode
 						cout << " " << *it2;
 					}
 				}
-				if (this->prev != NULL)
+				if (!prev.empty())
 				{
-					cout << " PREV: " << this->prev->opcode << " " << this->prev->result;
+					cout << " PREV:";
+					for (set <IRNode *>::iterator it3 = prev.begin(); it3 != prev.end(); ++it3)
+					{
+						cout << " " << (*it3)->opcode << " " << (*it3)->result;
+					}
+	
 				}
-				if (this->next != NULL)
+				if (!next.empty())
 				{
-					cout << " NEXT: " << this->next->opcode << " " << this->next->result;
+					cout << " NEXT:";
+					for (set <IRNode *>::iterator it4 = next.begin(); it4 != next.end(); ++it4)
+					{
+						cout << " " << (*it4)->opcode << " " << (*it4)->result;
+					}
+
 				}
 				cout << endl; 
 			}

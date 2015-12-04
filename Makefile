@@ -19,7 +19,7 @@ parser: ./src/$(BG).y
 	bison -d ./src/$(BG).y
 
 build:
-	$(CC) $(BG).tab.c lex.yy.c -lfl -o $(PROG)
+	$(CC) -std=c++0x $(BG).tab.c lex.yy.c -lfl -o $(PROG)
 
 organize:
 	mkdir -p generated
