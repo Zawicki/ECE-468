@@ -87,41 +87,27 @@ class IRNode
 				{
 					cout << " " << *it2;
 				}
-	
-				/*if (!gen.empty())
+				cout << "\n\tGEN:";
+				for (set <string>::iterator it = gen.begin(); it != gen.end(); ++it)
 				{
-					cout << " GEN:";
-					for (set <string>::iterator it = gen.begin(); it != gen.end(); ++it)
-					{
-						cout << " " << *it;
-					}
+					cout << " " << *it;
 				}
-				if (!kill.empty())
+				cout << "\n\tKILL:";
+				for (set <string>::iterator it2 = kill.begin(); it2 != kill.end(); ++it2)
 				{
-					cout << " KILL:";
-					for (set <string>::iterator it2 = kill.begin(); it2 != kill.end(); ++it2)
-					{
-						cout << " " << *it2;
-					}
+					cout << " " << *it2;
 				}
-				if (!prev.empty())
+				cout << "\n\tPREV:";
+				for (set <IRNode *>::iterator it3 = prev.begin(); it3 != prev.end(); ++it3)
 				{
-					cout << " PREV:";
-					for (set <IRNode *>::iterator it3 = prev.begin(); it3 != prev.end(); ++it3)
-					{
-						cout << " " << (*it3)->opcode << " " << (*it3)->result;
-					}
-	
+					cout << " " << (*it3)->opcode << " " << (*it3)->result;
 				}
-				if (!next.empty())
+				cout << "\n\tNEXT:";
+				for (set <IRNode *>::iterator it4 = next.begin(); it4 != next.end(); ++it4)
 				{
-					cout << " NEXT:";
-					for (set <IRNode *>::iterator it4 = next.begin(); it4 != next.end(); ++it4)
-					{
-						cout << " " << (*it4)->opcode << " " << (*it4)->result;
-					}
+					cout << " " << (*it4)->opcode << " " << (*it4)->result;
+				}
 
-				}*/
 				cout << endl; 
 			}
 		}

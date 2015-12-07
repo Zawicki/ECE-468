@@ -527,24 +527,25 @@ int main(int argc, char * argv[])
 					{
 						it2->out.insert(*it3); // initialize the live-out set to the global variables
 					}
-					it2->prev.insert(prev); // insert the previous element
+					it2->prev.insert(prev); // insert the previous element as a predecessor
 				}
 				else if (opcode != "JUMP")
 				{
 					if (it2 != func.begin() && prev->opcode != "JUMP")
 					{
-						it2->prev.insert(prev); // insert the previous element
+						it2->prev.insert(prev); // insert the previous element as a predecessor
 					}
-					it2->next.insert(next); // insert the next element
+					it2->next.insert(next); // insert the next element as a successor
 				}
 				else
 				{
-					it2->prev.insert(prev); // insert the previous element
+					it2->prev.insert(prev); // insert the previous element as a predecessor
 				}
 				
 				worklist.push_back(&(*it2));
 			}
 		}
+
 		// Liveness computation
 		// 1. Get a node
 		// 2. Compute live-in and live-out sets 
@@ -554,9 +555,9 @@ int main(int argc, char * argv[])
 		// 4. Repeat steps 2 and 3 until worklist is empty
 		while(!worklist.empty())
 		{
-			IRNode * n = *(worklist.begin()); // select the first node on the worklist
-			IRNode * prv;
-			IRNode * nxt;
+			IRNode * n = *(worklist.end() - 1); // select the last node on the worklist
+			worklist.erase(worklist.end() - 1); // remove the node from the worklist
+			IRNode * successor;
 			
 			set <IRNode *>::iterator i;
 			set <string>::iterator j;
@@ -564,18 +565,17 @@ int main(int argc, char * argv[])
 		
 			set <string> live_in_copy(n->in);
 
-			// computing the live-out set
+			// get the live-out set, setup the live-in set
 			for (i = n->next.begin(); i != n->next.end(); ++i) // loop through each successor
 			{
-				nxt = *i;
-				for (j = nxt->in.begin(); j != nxt->in.end(); ++j) // loop through the live-in set of the successor
+				successor = *i;
+				for (j = successor->in.begin(); j != successor->in.end(); ++j) // loop through the live-in set of the successor
 				{
 					n->out.insert(*j); // add the element to the live-out set
-					n->in.insert(*j); // add each item of the live-out set, this saves some loop iterations
+					//n->in.insert(*j);
 				}
 			}
 
-			// compute the live-in set
 			for (j = n->kill.begin(); j != n->kill.end(); ++j)
 			{
 				st = n->in.find(*j); // get an iterator to the element
@@ -584,19 +584,17 @@ int main(int argc, char * argv[])
 			}
 			for (j = n->gen.begin(); j != n->gen.end(); ++j)
 			{
-				n->in.insert(*j); // add each GEN var
+				n->in.insert(*j); // add each GEN var to the live-in set
 			}
 
 			if (live_in_copy != n->in) // if the live-in set changed, put all predecessors on the worklist
 			{
+				worklist.push_back(n);
 				for (i = n->prev.begin(); i != n->prev.end(); ++i) // loop through each predecessor
 				{
 					worklist.push_back(*i); // add the predeccessor to the worklist
 				}
 			}
-			
-
-			worklist.erase(worklist.begin()); // remove the node from the worklist
 		}
 	}
 
