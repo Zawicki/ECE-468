@@ -1,5 +1,6 @@
 #include <iostream>
 #include <set>
+#include <sstream>
 using namespace std;
 
 class tinyNode
@@ -29,6 +30,67 @@ class tinyNode
 		}
 
 	}
+};
+
+class Register
+{
+	public:
+		bool dirty;
+		string data;
+		string name;
+		int Pcnt;
+		int Lcnt;
+		
+		Register(string s)
+		{
+			dirty = false;
+			data = "";
+			name = s;
+			Pcnt = 0;
+			Lcnt = 0;
+		}
+
+
+		Register(string s, int P, int L)
+		{
+			dirty = false;
+			data = "";
+			name = s;
+			Pcnt = P;
+			Lcnt = L;
+		}
+
+		string str()
+		{
+			stringstream ss;
+			if (data[0] == '$')
+			{
+				if (data[1] == 'T')
+				{
+					string t = data.substr(2, string::npos);
+					ss << "$-" << atoi(t.c_str()) + Lcnt;
+					return ss.str();
+				}
+				else if (data[1] == 'L')
+				{
+					return "$-" + data.substr(2, string::npos);
+				}
+				else if (data[1] == 'P')
+				{
+					string t = data.substr(2, string::npos);
+					ss << "$" << atoi(t.c_str()) + 5; 
+					return ss.str();
+				}
+				else
+				{
+					ss << "$" << Pcnt + 6;
+					return ss.str();
+				}
+					
+			}
+			else
+				return data;
+		}
 };
 
 class IRNode
@@ -75,20 +137,20 @@ class IRNode
 				if (op2 != "")
 					cout << " " << op2;
 				cout << " " << result;
-				printf(" %x", this);
+				//printf(" %x", this);
 
-				cout << "\n\tLIVE-IN:";
+				/*cout << "\n\tLIVE-IN:";
 				for (set <string>::iterator it = in.begin(); it != in.end(); ++it)
 				{
 					cout << " " << *it;
-				}
+				}*/
 
-				cout << "\n\tLIVE VARS:";
+				cout << "\tLIVE VARS:";
 				for (set <string>::iterator it2 = out.begin(); it2 != out.end(); ++it2)
 				{
 					cout << " " << *it2;
 				}
-				cout << "\n\tGEN:";
+				/*cout << "\n\tGEN:";
 				for (set <string>::iterator it = gen.begin(); it != gen.end(); ++it)
 				{
 					cout << " " << *it;
@@ -109,7 +171,7 @@ class IRNode
 				{
 					cout << " " << (*it4)->opcode << " " << (*it4)->result;
 					printf(" %x", *it4);
-				}
+				}*/
 
 				cout << endl; 
 			}

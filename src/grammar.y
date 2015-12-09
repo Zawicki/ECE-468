@@ -8,6 +8,7 @@
 #include <iterator>
 #include <string>
 #include <stdlib.h>
+#include <ctype.h>
 
 using namespace std;
 
@@ -25,6 +26,7 @@ struct info
 {
 	int L_cnt;
 	int P_cnt;
+	int T_cnt;
 }f;
 
 void yyerror(const char *s);
@@ -35,12 +37,14 @@ map <string, wrapper> find_symbol_table(string id);
 
 void func_IR_setup(string);
 
+/*
 void IR_to_tiny(string fid);
 string tiny_opr(string func_name, string opr, int curr_reg);
 void assemble_addop(string opcode, string op1, string op2, int * curr_reg, string * addop_temp, string * mulop_temp, string * output_reg, string func_name);
 void assemble_mulop(string opcode, string op1, string op2, int * curr_reg, string * temp, string * output_reg, string func_name);
 void assemble_cmpi(string op1, string op2, string saved_reg, string output_reg, int * curr_reg, string func_name);
 void assemble_cmpr(string op1, string op2, string saved_reg, string output_reg, int * curr_reg, string func_name);
+*/
 
 stack <string> scope; // A stack holding the current valid scopes during parsing
 stack <string> scope_help; // A stack to hold scopes when using a variable that was not declared in the current scope
@@ -78,11 +82,27 @@ stack <string> labels; // Holds the labels for control flow statements
 
 %code 
 {
+string tinyOp(string op);
+void IR_to_4RegTiny(string func_name);
+Register * ensure(string op);
+void free_reg(Register * r);
+Register * allocate(string op);
+void end_of_bb();
+void save_globals();
+void assemble_mathop(string opcode, string op1, string op2, string result, IRNode n);
+void assemble_4reg_cmp(string opcode, string op1, string op2, IRNode n);
+
 vector <IRNode> IR; // Holds the nodes for the IR code
 vector <tinyNode> assembly; // Holds the nodes for the tiny code
 map <string, vector <IRNode> > func_IR; // maps a function name to a vector of its IR nodes
-//vector <IRNode> lbl_nodes;
 stack <IRNode *> lbl_nodes;
+Register r0 = Register("r0");
+Register r1 = Register("r1");
+Register r2 = Register("r2");
+Register r3 = Register("r3");
+IRNode * curr_node;
+
+
 }
 
 %union
@@ -227,7 +247,7 @@ func_decl:
 	'(' param_decl_list ')' _BEGIN func_body
 	END {IRNode n = IR.back(); if (n.opcode != "RET") IR.push_back(IRNode("RET", "", "", "")); 
 		string func_id = $3; func_IR[func_id] = IR; IR.clear(); 
-		f.L_cnt = local_cnt; f.P_cnt = param_cnt; func_info[func_id] = f; scope.pop()}
+		f.L_cnt = local_cnt; f.P_cnt = param_cnt; f.T_cnt = reg_cnt; func_info[func_id] = f; scope.pop()}
 	;
 func_body:
 	decl 
@@ -454,7 +474,7 @@ int main(int argc, char * argv[])
 {
 	if (argc != 2)
 	{
-		cout << endl << "Uasge: ./Micro <file to compile>" << endl;
+		cout << endl << "Usage: ./Micro <file to compile>" << endl;
 		return -1;
 	}
 
@@ -474,24 +494,6 @@ int main(int argc, char * argv[])
 	} while (!feof(yyin));
 	fclose(fp);
 
-	//Uncomment below to print off the symbol table directly from the maps
-	/*cout << endl << "-------------------------------------------------" << endl;
-	cout << "Iterating through the symbol table" << endl << endl;
-	
-	for (map <string, map <string, wrapper> >::iterator it = symbol_table.begin(); it != symbol_table.end(); ++it)
-	{
-		cout << endl << "Symbol table " << it->first << endl;
-		map <string, wrapper> &internal_map = it->second;
-		for (map <string, wrapper>::iterator it2 = internal_map.begin(); it2 != internal_map.end(); ++it2)
-		{
-			p = it2->second;
-			if (p.vals[0] == "STRING")
-				cout << "name " << it2->first << " type " << p.vals[0] << " value " << p.vals[1] << endl;
-			else
-				cout << "name " << it2->first << " type " << p.vals[0] << endl;
-
-		}
-	}*/
 	vector <IRNode *> worklist;
 	for (map <string, vector <IRNode> >::iterator it = func_IR.begin(); it != func_IR.end(); ++it)
 	{
@@ -622,7 +624,7 @@ int main(int argc, char * argv[])
 			set <IRNode *>::iterator i;
 			set <string>::iterator j;
 			set <string>::iterator st;
-		
+
 			set <string> live_in_copy(n->in);
 
 			// get the live-out set, setup the live-in set
@@ -696,12 +698,14 @@ int main(int argc, char * argv[])
 	assembly.push_back(tinyNode("sys halt", "", ""));
 
 	// Generate the tiny code
-	IR_to_tiny("main");
+	//IR_to_tiny("main");
+	IR_to_4RegTiny("main");
 	for (map <string, vector <IRNode> >::iterator it = func_IR.begin(); it != func_IR.end(); ++it)
 	{
 		if (it->first != "main")
 		{
-			IR_to_tiny(it->first);
+			//IR_to_tiny(it->first);
+			IR_to_4RegTiny(it->first);
 		}
 	}
 
@@ -850,6 +854,443 @@ void destroy_AST(ASTNode * n) // Destroys an AST tree
 	}
 }
 
+void IR_to_4RegTiny(string func_name) // Takes a function name and translates the IR for that function to tiny nodes
+{
+	vector <IRNode> n = func_IR[func_name];
+	f = func_info[func_name];
+
+	string code, op1, op2, result;
+
+	Register * reg1;
+	Register * reg2;
+
+	set <string>::iterator st;
+
+	r0.Pcnt = func_info[func_name].P_cnt;
+	r1.Pcnt = func_info[func_name].P_cnt;
+	r2.Pcnt = func_info[func_name].P_cnt;
+	r3.Pcnt = func_info[func_name].P_cnt;
+
+	r0.Lcnt = func_info[func_name].L_cnt;
+	r1.Lcnt = func_info[func_name].L_cnt;
+	r2.Lcnt = func_info[func_name].L_cnt;
+	r3.Lcnt = func_info[func_name].L_cnt;
+
+
+	for (vector <IRNode>::iterator it = n.begin(); it != n.end(); ++it) // Loop through the IR nodes in order
+	{
+		code = it->opcode;
+		op1 = it->op1;
+		op2 = it->op2;
+		result = it->result;
+		curr_node = &(*it);
+
+		// This if else chain checks the opcode and generates the corresponding tiny node.
+		if (code == "WRITEI")
+		{
+			reg1 = ensure(result);
+			assembly.push_back(tinyNode("sys writei", reg1->name, ""));
+		}
+		else if (code == "WRITEF")
+		{
+			reg1 = ensure(result);
+			assembly.push_back(tinyNode("sys writer", reg1->name, ""));
+		}
+		else if (code == "WRITES")
+		{
+			assembly.push_back(tinyNode("sys writes", result, ""));
+		}
+		else if (code == "READI")
+		{
+			reg1 = ensure(result);
+			assembly.push_back(tinyNode("sys readi", reg1->name, ""));
+		}
+		else if (code == "READF")
+		{
+			reg1 = ensure(result);
+			assembly.push_back(tinyNode("sys readr", reg1->name, ""));
+		}
+		else if (code == "JUMP")
+		{
+			end_of_bb();
+			assembly.push_back(tinyNode("jmp", result, ""));
+		}
+		else if (code == "GT")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_4reg_cmp("cmpi", op1, op2, *it);
+			}
+			else
+			{
+				assemble_4reg_cmp("cmpr", op1, op2, *it);
+			}
+			end_of_bb();
+			assembly.push_back(tinyNode("jgt", result, ""));
+		}
+		else if (code == "GE")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_4reg_cmp("cmpi", op1, op2, *it);
+			}
+			else
+			{
+				assemble_4reg_cmp("cmpr", op1, op2, *it);
+			}
+			end_of_bb();
+			assembly.push_back(tinyNode("jge", result, ""));
+		}
+		else if (code == "LT")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_4reg_cmp("cmpi", op1, op2, *it);
+			}
+			else
+			{
+				assemble_4reg_cmp("cmpr", op1, op2, *it);
+			}
+			end_of_bb();
+			assembly.push_back(tinyNode("jlt", result, ""));			
+		}
+		else if (code == "LE")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_4reg_cmp("cmpi", op1, op2, *it);
+			}
+			else
+			{
+				assemble_4reg_cmp("cmpr", op1, op2, *it);
+			}
+			end_of_bb();
+			assembly.push_back(tinyNode("jle", result, ""));
+		}
+		else if (code == "NE")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_4reg_cmp("cmpi", op1, op2, *it);
+			}
+			else
+			{
+				assemble_4reg_cmp("cmpr", op1, op2, *it);
+			}
+			end_of_bb();
+			assembly.push_back(tinyNode("jne", result, ""));
+		}
+		else if (code == "EQ")
+		{
+			if (it->cmp_type == "INT")
+			{
+				assemble_4reg_cmp("cmpi", op1, op2, *it);
+			}
+			else
+			{
+				assemble_4reg_cmp("cmpr", op1, op2, *it);
+			}
+			end_of_bb();
+			assembly.push_back(tinyNode("jeq", result, ""));
+		}
+		else if (code == "LABEL")
+		{
+			assembly.push_back(tinyNode("label", result, ""));
+		}
+		else if (code == "JSR")
+		{
+			save_globals();
+			assembly.push_back(tinyNode("push" , "r0", ""));
+			assembly.push_back(tinyNode("push" , "r1", ""));
+			assembly.push_back(tinyNode("push" , "r2", ""));
+			assembly.push_back(tinyNode("push" , "r3", ""));
+			assembly.push_back(tinyNode("jsr", result, ""));
+			assembly.push_back(tinyNode("pop" , "r3", ""));
+			assembly.push_back(tinyNode("pop" , "r2", ""));
+			assembly.push_back(tinyNode("pop" , "r1", ""));
+			assembly.push_back(tinyNode("pop" , "r0", ""));
+		}
+		else if (code == "PUSH")
+		{
+			if (result != "") 
+			{
+				reg1 = ensure(result);
+				assembly.push_back(tinyNode("push", reg1->name, ""));
+			}
+			else
+				assembly.push_back(tinyNode("push", "", ""));
+
+		}
+		else if (code == "POP")
+		{	
+			if (result != "") 
+			{
+				reg1 = ensure(result);	
+				assembly.push_back(tinyNode("pop", reg1->name, ""));
+			}
+			else
+				assembly.push_back(tinyNode("pop", "", ""));
+		}
+		else if (code == "LINK")
+		{
+			ss.str("");
+			ss << f.L_cnt + f.T_cnt;
+			assembly.push_back(tinyNode("link", ss.str(), ""));
+			ss.str("");
+		}
+		else if (code == "RET")
+		{
+			end_of_bb();
+			assembly.push_back(tinyNode("unlnk", "", ""));
+			assembly.push_back(tinyNode("ret", "", ""));
+		}
+		else if (code == "STOREI" || code == "STOREF")
+		{
+			if (result[0] == 'T')
+			{
+				reg1 = ensure(result);
+				assembly.push_back(tinyNode("move", op1, reg1->name));
+			}
+			else
+			{
+				reg1 = ensure(op1);
+				reg2 = ensure(op2);
+				assembly.push_back(tinyNode("move", reg1->name, reg2->name));
+
+				// check if op1 is live
+				st = it->out.find(op1);
+				if (st != it->out.end())
+					free_reg(reg1);
+				// check if op2 is live
+				st = it->out.find(op2);
+				if (st != it->out.end())
+					free_reg(reg2);
+			}
+		}
+		// Plus
+		else if (code == "ADDI")
+		{
+			assemble_mathop("addi", op1, op2, result, *it);
+		}
+		else if (code == "ADDF")
+		{
+			assemble_mathop("addr", op1, op2, result, *it);
+		}
+		// Subtarc
+		else if (code == "SUBI")
+		{
+			assemble_mathop("subi", op1, op2, result, *it);
+		}
+		else if (code == "SUBF")
+		{
+			assemble_mathop("subr", op1, op2, result, *it);
+		}
+		// Multiply
+		else if (code == "MULTI")
+		{
+			assemble_mathop("muli", op1, op2, result, *it);
+		}
+		else if (code == "MULTF")
+		{
+			assemble_mathop("mulr", op1, op2, result, *it);
+		}
+		// Divide
+		else if (code == "DIVI")
+		{
+			assemble_mathop("divi", op1, op2, result, *it);
+		}
+		else if (code == "DIVF")
+		{
+			assemble_mathop("divr", op1, op2, result, *it);
+		}
+	}
+}
+
+string tinyOp(string op)
+{
+	ss.str("");
+	stringstream ss;
+	int Lcnt = r0.Lcnt;
+	int Pcnt = r0.Pcnt;
+	if (op[0] == '$')
+	{
+		if (op[1] == 'T')
+		{
+			string t = op.substr(2, string::npos);
+			ss << "$-" << atoi(t.c_str()) + Lcnt;
+			return ss.str();
+		}
+		else if (op[1] == 'L')
+		{
+			return "$-" + op.substr(2, string::npos);
+		}
+		else if (op[1] == 'P')
+		{
+			string t = op.substr(2, string::npos);
+			ss << "$" << atoi(t.c_str()) + 5; 
+			return ss.str();
+		}
+		else
+		{
+			ss << "$" << Pcnt + 6;
+			return ss.str();
+		}
+			
+	}
+	else
+		return op;
+}
+
+Register * ensure(string op)
+{
+	if (r0.data == op)
+		return &r0;
+	else if (r1.data == op)
+		return &r1;
+	else if (r2.data == op)
+		return &r2;
+	else if (r3.data == op)
+		return &r3;
+
+	Register * r = allocate(op);
+	assembly.push_back(tinyNode("move", tinyOp(op), r->name));
+	return r;
+}
+
+void free_reg(Register * r)
+{
+	bool live = true;	
+	set <string>::iterator st;
+	st = curr_node->out.find(r->data);
+	if (st != curr_node->out.end()) // the variable is not live
+	{
+		live = false;
+	}
+
+	if (r->dirty && live)
+		assembly.push_back(tinyNode("move", r->name, r->str()));
+
+	r->dirty = false;
+}
+
+Register * allocate(string op)
+{
+	if (!r0.dirty)
+	{
+		r0.data = op;
+		return &r0;
+	}
+	else if (!r1.dirty)
+	{
+		r1.data = op;
+		return &r1;
+	}
+	else if (!r2.dirty)
+	{
+		r2.data = op;
+		return &r2;
+	}
+	else if (!r3.dirty)
+	{
+		r3.data = op;
+		return &r3;
+	}
+
+	free_reg(&r3);
+	r3.data = op;
+	return &r3;
+}
+
+void assemble_mathop(string opcode, string op1, string op2, string result, IRNode n)
+{
+	Register * reg1;
+	Register * reg2;
+	reg1 = ensure(op1);
+	reg2 = ensure(op2);
+
+	set <string>::iterator st;
+
+	// check if op1 is live
+	st = n.out.find(op1);
+	if (st != n.out.end())
+		free_reg(reg1);
+	// check if op2 is live
+	st = n.out.find(op2);
+	if (st != n.out.end())
+		free_reg(reg2);
+
+	assembly.push_back(tinyNode(opcode, reg1->name, reg2->name));
+	reg2->dirty = true;
+}
+
+void assemble_4reg_cmp(string opcode, string op1, string op2, IRNode n)
+{
+	Register * reg1;
+	Register * reg2;
+	reg1 = ensure(op1);
+	reg2 = ensure(op2);
+
+	set <string>::iterator st;
+
+	// check if op1 is live
+	st = n.out.find(op1);
+	if (st != n.out.end())
+		free_reg(reg1);
+	// check if op2 is live
+	st = n.out.find(op2);
+	if (st != n.out.end())
+		free_reg(reg2);
+
+	assembly.push_back(tinyNode(opcode, reg1->str(), reg2->str()));
+}
+
+void end_of_bb()
+{
+	if (r0.dirty || (r0.data[0] == '$' && r0.data[1] == 'L') || (r0.data[0] != '$' && !isdigit(r0.data[0])))
+			assembly.push_back(tinyNode("move", r0.name, r0.str()));
+	if (r0.dirty)
+		r0.dirty = false;
+
+	if (r1.dirty || (r1.data[0] == '$' && r1.data[1] == 'L') || (r1.data[0] != '$' && !isdigit(r1.data[0])))
+			assembly.push_back(tinyNode("move", r1.name, r1.str()));
+	if (r1.dirty)
+		r1.dirty = false;
+
+	if (r2.dirty || (r2.data[0] == '$' && r2.data[1] == 'L') || (r2.data[0] != '$' && !isdigit(r2.data[0])))
+			assembly.push_back(tinyNode("move", r2.name, r2.str()));
+	if (r2.dirty)
+		r2.dirty = false;
+
+	if (r3.dirty || (r3.data[0] == '$' && r3.data[1] == 'L') || (r3.data[0] != '$' && !isdigit(r3.data[0])))
+			assembly.push_back(tinyNode("move", r3.name, r3.str()));
+	if (r3.dirty)
+		r3.dirty = false;
+
+}
+
+void save_globals()
+{
+	if (r0.data[0] != '$' && !isdigit(r0.data[0]))
+		assembly.push_back(tinyNode("move", r0.name, r0.str()));
+	if (r0.dirty)
+		r0.dirty = false;
+
+	if (r1.data[0] != '$' && !isdigit(r1.data[0]))
+		assembly.push_back(tinyNode("move", r1.name, r1.str()));
+	if (r1.dirty)
+		r1.dirty = false;	
+
+	if (r2.data[0] != '$' && !isdigit(r2.data[0]))
+		assembly.push_back(tinyNode("move", r2.name, r2.str()));
+	if (r2.dirty)
+		r2.dirty = false;	
+
+	if (r3.data[0] != '$' && !isdigit(r3.data[0]))
+		assembly.push_back(tinyNode("move", r3.name, r3.str()));
+	if (r3.dirty)
+		r3.dirty = false;		
+}
+/*
 void IR_to_tiny(string fid) // Takes a function name and translates the IR for that function to tiny nodes
 {
 	vector <IRNode> n = func_IR[fid];
@@ -860,6 +1301,18 @@ void IR_to_tiny(string fid) // Takes a function name and translates the IR for t
 	string addop_temp = "";
 	string mulop_temp = "";
 	string code, op1, op2, result, saved_reg;
+
+	r0.Pcnt = func_info[fid].P_cnt;
+	r1.Pcnt = func_info[fid].P_cnt;
+	r2.Pcnt = func_info[fid].P_cnt;
+	r3.Pcnt = func_info[fid].P_cnt;
+
+	r0.Lcnt = func_info[fid].L_cnt;
+	r1.Lcnt = func_info[fid].L_cnt;
+	r2.Lcnt = func_info[fid].L_cnt;
+	r3.Lcnt = func_info[fid].L_cnt;
+
+
 	for (vector <IRNode>::iterator it = n.begin(); it != n.end(); ++it) // Loop through the IR nodes in order
 	{
 		code = it->opcode;
@@ -1310,3 +1763,4 @@ void assemble_cmpr(string op1, string op2, string saved_reg, string output_reg, 
 		assembly.push_back(tinyNode("cmpr", saved_reg, output_reg));
 	}
 }
+*/

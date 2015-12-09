@@ -1,0 +1,75 @@
+PROGRAM expr
+BEGIN
+
+	INT a,b,c,d;
+	FLOAT x,y,z,t;
+	STRING eol := "\n";
+
+	FUNCTION VOID main()
+	BEGIN
+		a := 1;
+		b := 2;
+		c := 10;
+		d := 20;
+
+		WRITE (a);
+		WRITE (eol);
+		WRITE (b);
+		WRITE (eol);
+		WRITE (c);
+		WRITE (eol);
+		WRITE(d);
+		WRITE (eol);
+		a := a + b;
+		WRITE (a);
+		WRITE (eol);
+		b := a * c;
+		WRITE (b);
+		WRITE (eol);
+		c := 0 - a + b;
+		WRITE (c);
+		WRITE (eol);
+		d := 0 - d;
+		WRITE (d);
+		WRITE (eol);
+		a := (a+b)*(d+c)-(a+b+c+d)/a;
+		WRITE (a);
+		WRITE (eol);
+		
+		a := a + 10;
+		WRITE (a);
+		WRITE (eol);
+		b := b + a + 10;
+		WRITE (b);
+		WRITE (eol);
+		c := 0 - 10;
+		WRITE (c);
+		WRITE (eol);
+		x := 1.0;
+		y := 2.0;
+		z := 3.14159;
+		WRITE (x);
+		WRITE (eol);
+		WRITE (z);
+		WRITE (eol);
+		WRITE (y);	
+		WRITE (eol);
+		x := z/2.0;
+		y := z/y;
+		WRITE (x);
+		WRITE (eol);
+		WRITE (y);	
+		WRITE (eol);
+		t := (x+y+z)/z;
+		WRITE (t);
+		WRITE (eol);
+		t := t*t;
+		WRITE (t);
+		WRITE (eol);
+		t := (t+z+t+t/2.0+z/4.0+z/5.0+z/6.0+z/7.0);
+		WRITE (t);
+		WRITE (eol);
+
+	END	
+END
+
