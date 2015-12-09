@@ -75,15 +75,16 @@ class IRNode
 				if (op2 != "")
 					cout << " " << op2;
 				cout << " " << result;
+				printf(" %x", this);
 
-				/*cout << "\n\tLIVE-IN:";
+				cout << "\n\tLIVE-IN:";
 				for (set <string>::iterator it = in.begin(); it != in.end(); ++it)
 				{
 					cout << " " << *it;
-				}*/
+				}
 
 				cout << "\n\tLIVE VARS:";
-				for (set <string>::iterator it2 = in.begin(); it2 != in.end(); ++it2)
+				for (set <string>::iterator it2 = out.begin(); it2 != out.end(); ++it2)
 				{
 					cout << " " << *it2;
 				}
@@ -101,11 +102,13 @@ class IRNode
 				for (set <IRNode *>::iterator it3 = prev.begin(); it3 != prev.end(); ++it3)
 				{
 					cout << " " << (*it3)->opcode << " " << (*it3)->result;
+					printf(" %x", *it3);
 				}
 				cout << "\n\tNEXT:";
 				for (set <IRNode *>::iterator it4 = next.begin(); it4 != next.end(); ++it4)
 				{
 					cout << " " << (*it4)->opcode << " " << (*it4)->result;
+					printf(" %x", *it4);
 				}
 
 				cout << endl; 

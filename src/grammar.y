@@ -81,6 +81,7 @@ stack <string> labels; // Holds the labels for control flow statements
 vector <IRNode> IR; // Holds the nodes for the IR code
 vector <tinyNode> assembly; // Holds the nodes for the tiny code
 map <string, vector <IRNode> > func_IR; // maps a function name to a vector of its IR nodes
+//vector <IRNode> lbl_nodes;
 stack <IRNode *> lbl_nodes;
 }
 
@@ -365,13 +366,28 @@ mulop:
 
 if_stmt:
 	IF  {push_block()}
-	'(' cond ')'	{IRNode * n = new IRNode("LABEL", "", "", labels.top()); labels.pop(); 
-			$4->next.insert(n); n->prev.insert($4); IR.push_back(*$4); lbl_nodes.push(n)} 
-	decl stmt_list	{ss.str(""); ss << "label" << lbl_cnt++; 
+	'(' cond ')'	{
+			IRNode * n = new IRNode("LABEL", "", "", labels.top()); labels.pop(); 
+			/*$4->next.insert(n); n->prev.insert($4);*/ IR.push_back(*$4); lbl_nodes.push(n)
+			/*IRNode n = IRNode("LABEL", "", "", labels.top()); labels.pop(); 
+			IR.push_back(*$4); lbl_nodes.push_back(n);
+			vector <IRNode>::iterator cond = IR.end() - 1; vector <IRNode>::iterator lbl = lbl_nodes.end() - 1;
+			(&(*cond))->next.insert((&(*lbl))); (&(*lbl))->prev.insert((&(*cond)))*/
+			} 
+	decl stmt_list	{
+			ss.str(""); ss << "label" << lbl_cnt++; 
 			IRNode * j = new IRNode("JUMP", "", "", ss.str()); IRNode * l = new IRNode("LABEL", "", "", ss.str());
-			j->next.insert(l); l->prev.insert(j); IR.push_back(*j); 
-			IR.push_back(*lbl_nodes.top()); lbl_nodes.pop(); lbl_nodes.push(l)}
-	else_part {IR.push_back(*lbl_nodes.top()); lbl_nodes.pop()}
+			/*j->next.insert(l); l->prev.insert(j);*/ IR.push_back(*j); 
+			IR.push_back(*lbl_nodes.top()); lbl_nodes.pop(); lbl_nodes.push(l)
+			/*ss.str(""); ss << "label" << lbl_cnt++; 
+			IRNode * j = new IRNode("JUMP", "", "", ss.str()); IRNode * l = new IRNode("LABEL", "", "", ss.str());
+			vector <IRNode>::iterator lbl = lbl_nodes.end() - 1;
+			IR.push_back(*lbl); lbl_nodes.pop_back(); lbl_nodes.push_back(*l); IR.push_back(*j); 
+			vector <IRNode>::iterator jmp = IR.end() - 1; lbl = lbl_nodes.end() - 1;
+			(&(*jmp))->next.insert((&(*lbl))); (&(*lbl))->prev.insert((&(*jmp)))*/
+			}
+	else_part 	{IR.push_back(*lbl_nodes.top()); lbl_nodes.pop()
+			/*vector <IRNode>::iterator lbl = lbl_nodes.end() - 1; IR.push_back(*lbl); lbl_nodes.pop_back()*/}
 	FI {scope.pop()}
 	;
 else_part:
@@ -399,16 +415,36 @@ incr_stmt:
 for_stmt:
 	FOR  {push_block()}
 	'(' 
-	init_stmt ';'	{makeIR($4); destroy_AST($4); 
+	init_stmt ';'	{
+			makeIR($4); destroy_AST($4); 
 			ss.str(""); ss << "label" << lbl_cnt++; IRNode * n = new IRNode("LABEL", "", "", ss.str());
-			IRNode * j = new IRNode("JUMP", "", "", ss.str()); j->next.insert(n); n->prev.insert(j);
-			lbl_nodes.push(j); IR.push_back(*n)}
-	cond ';'	{IRNode * n = new IRNode("LABEL", "", "", labels.top()); labels.pop();
-			$7->next.insert(n); n->prev.insert($7); IR.push_back(*$7); lbl_nodes.push(n)}
+			IRNode * j = new IRNode("JUMP", "", "", ss.str()); /*j->next.insert(n); n->prev.insert(j);*/
+			lbl_nodes.push(j); IR.push_back(*n)
+			/*makeIR($4); destroy_AST($4);
+			ss.str(""); ss << "label" << lbl_cnt++; IRNode * n = new IRNode("LABEL", "", "", ss.str());
+			IRNode * j = new IRNode("JUMP", "", "", ss.str());
+			lbl_nodes.push_back(*j); IR.push_back(*n);
+			vector <IRNode>::iterator lbl = IR.end() - 1; vector <IRNode>::iterator jmp = lbl_nodes.end() - 1;
+			(&(*jmp))->next.insert((&(*lbl))); (&(*lbl))->prev.insert((&(*jmp)))*/
+			}
+	cond ';'	{
+			IRNode * n = new IRNode("LABEL", "", "", labels.top()); labels.pop();
+			/*$7->next.insert(n); n->prev.insert($7);*/ IR.push_back(*$7); lbl_nodes.push(n)
+			/*IRNode * n = new IRNode("LABEL", "", "", labels.top()); labels.pop();
+			IR.push_back(*$7); lbl_nodes.push_back(*n);
+			vector <IRNode>::iterator cond = IR.end() - 1; vector <IRNode>::iterator lbl = lbl_nodes.end() - 1;
+			(&(*cond))->next.insert((&(*lbl))); (&(*lbl))->prev.insert((&(*cond)))*/
+			}
 	incr_stmt 
 	')' 
-	decl stmt_list	{makeIR($10); destroy_AST($10); IRNode * l = lbl_nodes.top(); lbl_nodes.pop();
-			IRNode * j = lbl_nodes.top(); IR.push_back(*j); lbl_nodes.pop(); IR.push_back(*l)}
+	decl stmt_list	{
+			makeIR($10); destroy_AST($10); IRNode * l = lbl_nodes.top(); lbl_nodes.pop();
+			IRNode * j = lbl_nodes.top(); IR.push_back(*j); lbl_nodes.pop(); IR.push_back(*l)
+			/*makeIR($10); destroy_AST($10); 
+			vector <IRNode>::iterator lbl = lbl_nodes.end() - 1; lbl_nodes.pop_back();
+			vector <IRNode>::iterator jmp = lbl_nodes.end() - 1; lbl_nodes.pop_back();
+			IR.push_back(*jmp); IR.push_back(*lbl)*/
+			}
 	ROF	{scope.pop()}
 	;
 
@@ -456,7 +492,6 @@ int main(int argc, char * argv[])
 
 		}
 	}*/
-
 	vector <IRNode *> worklist;
 	for (map <string, vector <IRNode> >::iterator it = func_IR.begin(); it != func_IR.end(); ++it)
 	{
@@ -505,7 +540,7 @@ int main(int argc, char * argv[])
 				{
 					while ((*(it2 - num)).opcode == "")
 					{
-						num--;
+						num++;
 					}
 					prev = (&(*(it2 - num)));
 				}
@@ -520,7 +555,7 @@ int main(int argc, char * argv[])
 					}
 					next = (&(*(it2 + num)));
 				}
-				
+			
 				if (opcode == "RET")
 				{
 					for (vector <string>::iterator it3 = vars.begin(); it3 != vars.end(); ++it3)
@@ -528,6 +563,22 @@ int main(int argc, char * argv[])
 						it2->out.insert(*it3); // initialize the live-out set to the global variables
 					}
 					it2->prev.insert(prev); // insert the previous element as a predecessor
+				}
+				else if (opcode == "GT" || opcode == "GE" || opcode == "LT" || opcode == "LE" || opcode == "EQ" || opcode == "NE")
+				{
+					if (it2 != func.begin() && prev->opcode != "JUMP")
+					{
+						it2->prev.insert(prev); // insert the previous element as a predecessor
+					}
+					it2->next.insert(next); // insert the next element as a successor
+					for (vector <IRNode>::iterator it3 = func.begin(); it3 != func.end(); ++it3)
+					{
+						if (it3->opcode == "LABEL" && it3->result == it2->result)
+						{
+							it2->next.insert(&(*it3)); // add the label as a successor
+							it3->prev.insert(&(*it2)); // add the compare as a predecessor
+						}
+					}
 				}
 				else if (opcode != "JUMP")
 				{
@@ -540,6 +591,15 @@ int main(int argc, char * argv[])
 				else
 				{
 					it2->prev.insert(prev); // insert the previous element as a predecessor
+					for (vector <IRNode>::iterator it4 = func.begin(); it4 != func.end(); ++it4)
+					{
+						if (it4->opcode == "LABEL" && it4->result == it2->result)
+						{
+							it2->next.insert(&(*it4)); // add the label as a successor
+							it4->prev.insert(&(*it2)); // add the compare as a predecessor
+						}
+					}
+
 				}
 				
 				worklist.push_back(&(*it2));
@@ -555,8 +615,8 @@ int main(int argc, char * argv[])
 		// 4. Repeat steps 2 and 3 until worklist is empty
 		while(!worklist.empty())
 		{
-			IRNode * n = *(worklist.end() - 1); // select the last node on the worklist
-			worklist.erase(worklist.end() - 1); // remove the node from the worklist
+			IRNode * n = *(worklist.begin()); // select the last node on the worklist
+			worklist.erase(worklist.begin()); // remove the node from the worklist
 			IRNode * successor;
 			
 			set <IRNode *>::iterator i;
@@ -572,7 +632,7 @@ int main(int argc, char * argv[])
 				for (j = successor->in.begin(); j != successor->in.end(); ++j) // loop through the live-in set of the successor
 				{
 					n->out.insert(*j); // add the element to the live-out set
-					//n->in.insert(*j);
+					n->in.insert(*j);
 				}
 			}
 
@@ -586,13 +646,13 @@ int main(int argc, char * argv[])
 			{
 				n->in.insert(*j); // add each GEN var to the live-in set
 			}
-
+			
 			if (live_in_copy != n->in) // if the live-in set changed, put all predecessors on the worklist
 			{
-				worklist.push_back(n);
 				for (i = n->prev.begin(); i != n->prev.end(); ++i) // loop through each predecessor
 				{
 					worklist.push_back(*i); // add the predeccessor to the worklist
+					
 				}
 			}
 		}
