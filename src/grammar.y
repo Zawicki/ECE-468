@@ -69,7 +69,6 @@ map <string, info> func_info; // A map from a function name to a struct holding 
 
 stack <string> regs; // Keeps track of registers in an expression
 stack <string> labels; // Holds the labels for control flow statements
-
 %}
 
 %code requires
@@ -85,11 +84,14 @@ stack <string> labels; // Holds the labels for control flow statements
 string tinyOp(string op);
 void IR_to_4RegTiny(string func_name);
 Register * ensure(string op);
+Register * store_ensure(string op);
 void free_reg(Register * r);
 Register * allocate(string op);
+Register * spill();
 void end_of_bb();
 void save_globals();
-void assemble_mathop(string opcode, string op1, string op2, string result, IRNode n);
+void assemble_mathop1(string opcode, string op1, string op2, string result, IRNode n);
+void assemble_mathop2(string opcode, string op1, string op2, string result, IRNode n);
 void assemble_4reg_cmp(string opcode, string op1, string op2, IRNode n);
 
 vector <IRNode> IR; // Holds the nodes for the IR code
@@ -101,8 +103,8 @@ Register r1 = Register("r1");
 Register r2 = Register("r2");
 Register r3 = Register("r3");
 IRNode * curr_node;
-
-
+vector <IRNode> curr_IR;
+vector <IRNode>::iterator IR_it;
 }
 
 %union
@@ -509,7 +511,7 @@ int main(int argc, char * argv[])
 
 			if (opcode != "")
 			{
-				if (opcode == "PUSH" || opcode == "WRITEI" || opcode == "WRITEF" ||  opcode == "WRITES")
+				if (opcode == "PUSH" || opcode == "WRITEI" || opcode == "WRITEF")
 				{
 					it2->gen.insert(result);
 				}
@@ -857,6 +859,7 @@ void destroy_AST(ASTNode * n) // Destroys an AST tree
 void IR_to_4RegTiny(string func_name) // Takes a function name and translates the IR for that function to tiny nodes
 {
 	vector <IRNode> n = func_IR[func_name];
+	curr_IR = func_IR[func_name];
 	f = func_info[func_name];
 
 	string code, op1, op2, result;
@@ -884,6 +887,9 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 		op2 = it->op2;
 		result = it->result;
 		curr_node = &(*it);
+		IR_it = it;
+
+		assembly.push_back(tinyNode(it->str(), "", ""));
 
 		// This if else chain checks the opcode and generates the corresponding tiny node.
 		if (code == "WRITEI")
@@ -1048,60 +1054,57 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 		{
 			if (result[0] == 'T')
 			{
-				reg1 = ensure(result);
+				reg1 = store_ensure(result);
 				assembly.push_back(tinyNode("move", op1, reg1->name));
+				reg1->dirty = true;
 			}
 			else
 			{
 				reg1 = ensure(op1);
-				reg2 = ensure(op2);
+				reg2 = store_ensure(result);
 				assembly.push_back(tinyNode("move", reg1->name, reg2->name));
+				reg2->dirty = true;
 
-				// check if op1 is live
 				st = it->out.find(op1);
-				if (st != it->out.end())
-					free_reg(reg1);
-				// check if op2 is live
-				st = it->out.find(op2);
-				if (st != it->out.end())
-					free_reg(reg2);
+				if (st == it->out.end())
+					free_reg(reg1); // free op1
 			}
 		}
 		// Plus
 		else if (code == "ADDI")
 		{
-			assemble_mathop("addi", op1, op2, result, *it);
+			assemble_mathop1("addi", op1, op2, result, *it);
 		}
 		else if (code == "ADDF")
 		{
-			assemble_mathop("addr", op1, op2, result, *it);
+			assemble_mathop1("addr", op1, op2, result, *it);
 		}
 		// Subtarc
 		else if (code == "SUBI")
 		{
-			assemble_mathop("subi", op1, op2, result, *it);
+			assemble_mathop2("subi", op1, op2, result, *it);
 		}
 		else if (code == "SUBF")
 		{
-			assemble_mathop("subr", op1, op2, result, *it);
+			assemble_mathop2("subr", op1, op2, result, *it);
 		}
 		// Multiply
 		else if (code == "MULTI")
 		{
-			assemble_mathop("muli", op1, op2, result, *it);
+			assemble_mathop1("muli", op1, op2, result, *it);
 		}
 		else if (code == "MULTF")
 		{
-			assemble_mathop("mulr", op1, op2, result, *it);
+			assemble_mathop1("mulr", op1, op2, result, *it);
 		}
 		// Divide
 		else if (code == "DIVI")
 		{
-			assemble_mathop("divi", op1, op2, result, *it);
+			assemble_mathop2("divi", op1, op2, result, *it);
 		}
 		else if (code == "DIVF")
 		{
-			assemble_mathop("divr", op1, op2, result, *it);
+			assemble_mathop2("divr", op1, op2, result, *it);
 		}
 	}
 }
@@ -1141,67 +1144,150 @@ string tinyOp(string op)
 		return op;
 }
 
+Register * store_ensure(string op)
+{
+	Register * r;
+	if (r0.data == op)
+		r = &r0;
+	else if (r1.data == op)
+		r = &r1;
+	else if (r2.data == op)
+		r = &r2;
+	else if (r3.data == op)
+		r = &r3;
+	else
+		r = allocate(op);
+
+	assembly.push_back(tinyNode(";store_ensure()", op, " r0->" + r0.data + " r1->" + r1.data + " r2->" + r2.data + " r3->" + r3.data));
+	return r;
+}
+
 Register * ensure(string op)
 {
+	Register * r;
+	bool last = false;
 	if (r0.data == op)
-		return &r0;
+		r = &r0;
 	else if (r1.data == op)
-		return &r1;
+		r = &r1;
 	else if (r2.data == op)
-		return &r2;
+		r = &r2;
 	else if (r3.data == op)
-		return &r3;
+		r = &r3;
+	else
+	{
+		r = allocate(op);
+		last = true;
+	}
 
-	Register * r = allocate(op);
-	assembly.push_back(tinyNode("move", tinyOp(op), r->name));
+	assembly.push_back(tinyNode(";ensure()", op, " r0->" + r0.data + " r1->" + r1.data + " r2->" + r2.data + " r3->" + r3.data));
+	if (last)
+		assembly.push_back(tinyNode("move", tinyOp(op), r->name));
 	return r;
 }
 
 void free_reg(Register * r)
 {
-	bool live = true;	
+	assembly.push_back(tinyNode(";freeing", r->name, r->data));
+	bool live = true;
 	set <string>::iterator st;
 	st = curr_node->out.find(r->data);
-	if (st != curr_node->out.end()) // the variable is not live
+	if (st == curr_node->out.end()) // the variable is not live
 	{
 		live = false;
 	}
 
 	if (r->dirty && live)
+	{
 		assembly.push_back(tinyNode("move", r->name, r->str()));
+	}
 
 	r->dirty = false;
+	r->data = "";
 }
 
 Register * allocate(string op)
 {
-	if (!r0.dirty)
-	{
-		r0.data = op;
-		return &r0;
-	}
-	else if (!r1.dirty)
-	{
-		r1.data = op;
-		return &r1;
-	}
-	else if (!r2.dirty)
-	{
-		r2.data = op;
-		return &r2;
-	}
-	else if (!r3.dirty)
+	if (r3.data == "")
 	{
 		r3.data = op;
 		return &r3;
 	}
+	else if (r2.data == "")
+	{
+		r2.data = op;
+		return &r2;
+	}
+	else if (r1.data == "")
+	{
+		r1.data = op;
+		return &r1;
+	}
+	else if (r0.data == "")
+	{
+		r0.data = op;
+		return &r0;
+	}
 
-	free_reg(&r3);
-	r3.data = op;
-	return &r3;
+	Register * r = spill();
+	assembly.push_back(tinyNode(";spilling", r->name, r->data));
+	free_reg(r);
+	r->data = op;
+	return r;
 }
 
-void assemble_mathop(string opcode, string op1, string op2, string result, IRNode n)
+Register * spill()
+{
+	int dist0 = 0;
+	int dist1 = 0;
+	int dist2 = 0;
+	int dist3 = 0;
+
+	Register * r;
+	vector <IRNode>::iterator it;
+	if (!isdigit(r0.data[0]))
+	{
+		for (it = IR_it; it != curr_IR.end() && (*it).out.find(r0.data) != (*it).out.end(); ++it)
+		{
+			dist0++;
+		}
+	}
+	r = &r0;
+
+	if (!isdigit(r1.data[0]))
+	{
+		for (it = IR_it; it != curr_IR.end() && (*it).out.find(r1.data) != (*it).out.end(); ++it)
+		{
+			dist1++;
+		}
+	}
+	if (dist1 > dist0)
+		r = &r1;
+
+	if (!isdigit(r2.data[0]))
+	{
+		for (it = IR_it; it != curr_IR.end() && (*it).out.find(r2.data) != (*it).out.end(); ++it)
+		{
+			dist2++;
+		}
+	}
+	if (dist2 > dist0 && dist2 > dist1)
+		r = &r1;
+
+	if (!isdigit(r3.data[0]))
+	{
+		for (it = IR_it; it != curr_IR.end() && (*it).out.find(r3.data) != (*it).out.end(); ++it)
+		{
+			dist3++;
+		}
+	}
+	if (dist3 > dist0 && dist3 > dist1 && dist3 > dist2)
+		r = &r1;
+
+	return r;
+}
+
+void assemble_mathop1(string opcode, string op1, string op2, string result, IRNode n)
 {
 	Register * reg1;
 	Register * reg2;
@@ -1210,16 +1296,38 @@ void assemble_mathop(string opcode, string op1, string op2, string result, IRNod
 
 	set <string>::iterator st;
 
-	// check if op1 is live
 	st = n.out.find(op1);
-	if (st != n.out.end())
-		free_reg(reg1);
-	// check if op2 is live
-	st = n.out.find(op2);
-	if (st != n.out.end())
-		free_reg(reg2);
+	if (st == n.out.end())
+		free_reg(reg1); // free if op1 is not live
 
+	st = n.out.find(op2);
+	if (st == n.out.end())
+		free_reg(reg2); // free if op2 is not live
+
+	reg2->data = result;
 	assembly.push_back(tinyNode(opcode, reg1->name, reg2->name));
+	reg2->dirty = true;
+}
+
+void assemble_mathop2(string opcode, string op1, string op2, string result, IRNode n)
+{
+	Register * reg1;
+	Register * reg2;
+	reg1 = ensure(op1);
+	reg2 = ensure(op2);
+
+	set <string>::iterator st;
+
+	st = n.out.find(op1);
+	if (st == n.out.end())
+		free_reg(reg1); // free if op1 is not live
+
+	st = n.out.find(op2);
+	if (st == n.out.end())
+		free_reg(reg2); // free if op2 is not live
+
+	reg1->data = result;
+	assembly.push_back(tinyNode(opcode, reg2->name, reg1->name));
 	reg2->dirty = true;
 }
 
@@ -1241,51 +1349,55 @@ void assemble_4reg_cmp(string opcode, string op1, string op2, IRNode n)
 	if (st != n.out.end())
 		free_reg(reg2);
 
-	assembly.push_back(tinyNode(opcode, reg1->str(), reg2->str()));
+	assembly.push_back(tinyNode(opcode, reg1->name, reg2->name));
 }
 
 void end_of_bb()
 {
-	if (r0.dirty || (r0.data[0] == '$' && r0.data[1] == 'L') || (r0.data[0] != '$' && !isdigit(r0.data[0])))
+	if ((r0.dirty || (r0.data[0] == '$' && r0.data[1] == 'L') || (r0.data[0] != '$' && !isdigit(r0.data[0]))) && r0.data != "")
 			assembly.push_back(tinyNode("move", r0.name, r0.str()));
 	if (r0.dirty)
 		r0.dirty = false;
 
-	if (r1.dirty || (r1.data[0] == '$' && r1.data[1] == 'L') || (r1.data[0] != '$' && !isdigit(r1.data[0])))
+	if ((r1.dirty || (r1.data[0] == '$' && r1.data[1] == 'L') || (r1.data[0] != '$' && !isdigit(r1.data[0]))) && r1.data != "")
 			assembly.push_back(tinyNode("move", r1.name, r1.str()));
 	if (r1.dirty)
 		r1.dirty = false;
 
-	if (r2.dirty || (r2.data[0] == '$' && r2.data[1] == 'L') || (r2.data[0] != '$' && !isdigit(r2.data[0])))
+	if ((r2.dirty || (r2.data[0] == '$' && r2.data[1] == 'L') || (r2.data[0] != '$' && !isdigit(r2.data[0]))) && r2.data != "")
 			assembly.push_back(tinyNode("move", r2.name, r2.str()));
 	if (r2.dirty)
 		r2.dirty = false;
 
-	if (r3.dirty || (r3.data[0] == '$' && r3.data[1] == 'L') || (r3.data[0] != '$' && !isdigit(r3.data[0])))
+	if ((r3.dirty || (r3.data[0] == '$' && r3.data[1] == 'L') || (r3.data[0] != '$' && !isdigit(r3.data[0]))) && r3.data != "")
 			assembly.push_back(tinyNode("move", r3.name, r3.str()));
 	if (r3.dirty)
 		r3.dirty = false;
 
+	r0.data = "";
+	r1.data = "";
+	r2.data = "";
+	r3.data = "";
 }
 
 void save_globals()
 {
-	if (r0.data[0] != '$' && !isdigit(r0.data[0]))
+	if (r0.data[0] != '$' && !isdigit(r0.data[0]) && r0.data != "")
 		assembly.push_back(tinyNode("move", r0.name, r0.str()));
 	if (r0.dirty)
 		r0.dirty = false;
 
-	if (r1.data[0] != '$' && !isdigit(r1.data[0]))
+	if (r1.data[0] != '$' && !isdigit(r1.data[0]) && r1.data != "")
 		assembly.push_back(tinyNode("move", r1.name, r1.str()));
 	if (r1.dirty)
 		r1.dirty = false;	
 
-	if (r2.data[0] != '$' && !isdigit(r2.data[0]))
+	if (r2.data[0] != '$' && !isdigit(r2.data[0]) && r2.data != "")
 		assembly.push_back(tinyNode("move", r2.name, r2.str()));
 	if (r2.dirty)
 		r2.dirty = false;	
 
-	if (r3.data[0] != '$' && !isdigit(r3.data[0]))
+	if (r3.data[0] != '$' && !isdigit(r3.data[0]) && r3.data != "")
 		assembly.push_back(tinyNode("move", r3.name, r3.str()));
 	if (r3.dirty)
 		r3.dirty = false;		

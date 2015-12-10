@@ -176,6 +176,29 @@ class IRNode
 				cout << endl; 
 			}
 		}
+		
+		string str()
+		{
+			if (opcode != "")
+			{
+				stringstream ss;
+				ss << ";" << opcode;
+				if (op1 != "")
+					ss << " " << op1;
+				if (op2 != "")
+					ss << " " << op2;
+				ss << " " << result;
+
+				ss << "\tLIVE VARS:";
+				for (set <string>::iterator it2 = out.begin(); it2 != out.end(); ++it2)
+				{
+					ss << " " << *it2;
+				}
+				return ss.str();
+			}
+			else 
+				return "";
+		}
 };
 
 class ASTNode 

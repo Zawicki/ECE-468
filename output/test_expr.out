@@ -107,6 +107,7 @@ var x
 var y
 var z
 var t
+str eol "\n"
 push
 push r0
 push r1
@@ -164,17 +165,21 @@ move r3 $-4
 ;WRITEI a	 live vars: b, c, d, a, 
 ;ensure(): a has register r2 { r0->d r1->b r2->a r3->null }
 sys writei r2
+sys writes eol
 ;WRITEI b	 live vars: c, d, a, b, 
 ;ensure(): b has register r1 { r0->d r1->b r2->a r3->null }
 sys writei r1
+sys writes eol
 ;WRITEI c	 live vars: d, a, b, c, 
 ;ensure(): c gets register r3 { r0->d r1->b r2->a r3->c }
 ;loading c to register r3
 move c r3
 sys writei r3
+sys writes eol
 ;WRITEI d	 live vars: a, b, c, d, 
 ;ensure(): d has register r0 { r0->d r1->b r2->a r3->c }
 sys writei r0
+sys writes eol
 ;ADDI a b $T5	 live vars: $T5, c, d, 
 ;ensure(): a has register r2 { r0->d r1->b r2->a r3->c }
 ;ensure(): b has register r1 { r0->d r1->b r2->a r3->c }
@@ -195,6 +200,7 @@ move r2 $-5
 ;WRITEI a	 live vars: a, c, d, 
 ;ensure(): a has register r1 { r0->d r1->a r2->null r3->c }
 sys writei r1
+sys writes eol
 ;MULTI a c $T6	 live vars: $T6, a, d, 
 ;ensure(): a has register r1 { r0->d r1->a r2->null r3->c }
 ;ensure(): c has register r3 { r0->d r1->a r2->null r3->c }
@@ -213,6 +219,7 @@ move r1 $-6
 ;WRITEI b	 live vars: a, b, d, 
 ;ensure(): b has register r3 { r0->d r1->null r2->null r3->b }
 sys writei r3
+sys writes eol
 ;STOREI 0 $T7	 live vars: $T7, a, b, d, 
 ;ensure(): $T7 gets register r2 { r0->d r1->null r2->$T7 r3->b }
 move 0 r2
@@ -245,6 +252,7 @@ move r2 $-9
 ;WRITEI c	 live vars: d, a, b, c, 
 ;ensure(): c has register r3 { r0->d r1->a r2->null r3->c }
 sys writei r3
+sys writes eol
 ;STOREI 0 $T10	 live vars: $T10, d, a, b, c, 
 ;ensure(): $T10 gets register r2 { r0->d r1->a r2->$T10 r3->c }
 move 0 r2
@@ -268,6 +276,7 @@ move r2 $-11
 ;WRITEI d	 live vars: a, b, d, c, 
 ;ensure(): d has register r0 { r0->d r1->a r2->null r3->c }
 sys writei r0
+sys writes eol
 ;ADDI a b $T12	 live vars: d, c, $T12, a, b, 
 ;ensure(): a has register r1 { r0->d r1->a r2->null r3->c }
 ;ensure(): b gets register r2 { r0->d r1->a r2->b r3->c }
@@ -350,6 +359,7 @@ move r1 $-19
 ;WRITEI a	 live vars: a, b, 
 ;ensure(): a has register r3 { r0->null r1->null r2->null r3->a }
 sys writei r3
+sys writes eol
 ;STOREI 10 $T20	 live vars: a, $T20, b, 
 ;ensure(): $T20 gets register r2 { r0->null r1->null r2->$T20 r3->a }
 move 10 r2
@@ -373,6 +383,7 @@ move r3 $-21
 ;WRITEI a	 live vars: b, a, 
 ;ensure(): a has register r2 { r0->null r1->null r2->a r3->null }
 sys writei r2
+sys writes eol
 ;ADDI b a $T22	 live vars: $T22, 
 ;ensure(): b gets register r3 { r0->null r1->null r2->a r3->b }
 ;loading b to register r3
@@ -406,6 +417,7 @@ move r3 $-24
 ;WRITEI b	 live vars: 
 ;ensure(): b has register r2 { r0->null r1->null r2->b r3->null }
 sys writei r2
+sys writes eol
 ;Freeing unused variable b
 ;Spilling variable: b
 move r2 b
@@ -435,6 +447,7 @@ move r3 $-27
 ;WRITEI c	 live vars: 
 ;ensure(): c has register r2 { r0->null r1->null r2->c r3->null }
 sys writei r2
+sys writes eol
 ;Freeing unused variable c
 ;Spilling variable: c
 move r2 c
@@ -471,15 +484,18 @@ move r3 $-30
 ;WRITEF x	 live vars: z, y, 
 ;ensure(): x has register r2 { r0->z r1->y r2->x r3->null }
 sys writer r2
+sys writes eol
 ;Freeing unused variable x
 ;Spilling variable: x
 move r2 x
 ;WRITEF z	 live vars: y, z, 
 ;ensure(): z has register r0 { r0->z r1->y r2->null r3->null }
 sys writer r0
+sys writes eol
 ;WRITEF y	 live vars: z, y, 
 ;ensure(): y has register r1 { r0->z r1->y r2->null r3->null }
 sys writer r1
+sys writes eol
 ;STOREF 2.0 $T31	 live vars: z, $T31, y, 
 ;ensure(): $T31 gets register r3 { r0->z r1->y r2->null r3->$T31 }
 move 2.0 r3
@@ -520,9 +536,11 @@ move r2 $-33
 ;WRITEF x	 live vars: y, x, z, 
 ;ensure(): x has register r3 { r0->null r1->y r2->null r3->x }
 sys writer r3
+sys writes eol
 ;WRITEF y	 live vars: x, y, z, 
 ;ensure(): y has register r1 { r0->null r1->y r2->null r3->x }
 sys writer r1
+sys writes eol
 ;ADDF x y $T34	 live vars: $T34, z, 
 ;ensure(): x has register r3 { r0->null r1->y r2->null r3->x }
 ;ensure(): y has register r1 { r0->null r1->y r2->null r3->x }
@@ -559,6 +577,7 @@ move r3 $-36
 ;WRITEF t	 live vars: t, z, 
 ;ensure(): t has register r1 { r0->null r1->t r2->z r3->null }
 sys writer r1
+sys writes eol
 ;MULTF t t $T37	 live vars: $T37, z, 
 ;ensure(): t has register r1 { r0->null r1->t r2->z r3->null }
 ;ensure(): t has register r1 { r0->null r1->t r2->z r3->null }
@@ -576,6 +595,7 @@ move r1 $-37
 ;WRITEF t	 live vars: t, z, 
 ;ensure(): t has register r3 { r0->null r1->null r2->z r3->t }
 sys writer r3
+sys writes eol
 ;ADDF t z $T38	 live vars: $T38, t, z, 
 ;ensure(): t has register r3 { r0->null r1->null r2->z r3->t }
 ;ensure(): z has register r2 { r0->null r1->null r2->z r3->t }
@@ -713,6 +733,7 @@ move r3 $-54
 ;WRITEF t	 live vars: 
 ;ensure(): t has register r2 { r0->null r1->null r2->t r3->null }
 sys writer r2
+sys writes eol
 ;Freeing unused variable t
 ;Spilling variable: t
 move r2 t
