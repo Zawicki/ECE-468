@@ -722,8 +722,8 @@ int main(int argc, char * argv[])
 
 void yyerror(const char *s)
 {
-	cout << s << endl;
-	exit(line_num);
+	cout << s << " " << line_num << endl;
+	exit(EXIT_FAILURE);
 }
 
 void push_block() // Pushes a block onto tthe scope stack
@@ -894,13 +894,17 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 		// This if else chain checks the opcode and generates the corresponding tiny node.
 		if (code == "WRITEI")
 		{
-			reg1 = ensure(result);
-			assembly.push_back(tinyNode("sys writei", reg1->name, ""));
+			//reg1 = ensure(result);	
+			//assembly.push_back(tinyNode("sys writei", reg1->name, ""));
+			assembly.push_back(tinyNode("move", tinyOp(result), "r0"));	
+			assembly.push_back(tinyNode("sys writei", "r0", ""));
 		}
 		else if (code == "WRITEF")
 		{
-			reg1 = ensure(result);
-			assembly.push_back(tinyNode("sys writer", reg1->name, ""));
+			//reg1 = ensure(result);
+			//assembly.push_back(tinyNode("sys writer", reg1->name, ""));
+			assembly.push_back(tinyNode("move", tinyOp(result), "r0"));	
+			assembly.push_back(tinyNode("sys writer", "r0", ""));
 		}
 		else if (code == "WRITES")
 		{
@@ -908,17 +912,21 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 		}
 		else if (code == "READI")
 		{
-			reg1 = ensure(result);
-			assembly.push_back(tinyNode("sys readi", reg1->name, ""));
+			//reg1 = ensure(result);
+			//assembly.push_back(tinyNode("sys readi", reg1->name, ""));	
+			assembly.push_back(tinyNode("sys readi", "r0", ""));
+			assembly.push_back(tinyNode("move", "r0", tinyOp(result)));
 		}
 		else if (code == "READF")
 		{
-			reg1 = ensure(result);
-			assembly.push_back(tinyNode("sys readr", reg1->name, ""));
+			//reg1 = ensure(result);
+			//assembly.push_back(tinyNode("sys readr", reg1->name, ""));
+			assembly.push_back(tinyNode("sys readr", "r0", ""));
+			assembly.push_back(tinyNode("move", "r0", tinyOp(result)));
 		}
 		else if (code == "JUMP")
 		{
-			end_of_bb();
+			//end_of_bb();
 			assembly.push_back(tinyNode("jmp", result, ""));
 		}
 		else if (code == "GT")
@@ -931,7 +939,7 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 			{
 				assemble_4reg_cmp("cmpr", op1, op2, *it);
 			}
-			end_of_bb();
+			//end_of_bb();
 			assembly.push_back(tinyNode("jgt", result, ""));
 		}
 		else if (code == "GE")
@@ -944,7 +952,7 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 			{
 				assemble_4reg_cmp("cmpr", op1, op2, *it);
 			}
-			end_of_bb();
+			//end_of_bb();
 			assembly.push_back(tinyNode("jge", result, ""));
 		}
 		else if (code == "LT")
@@ -957,7 +965,7 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 			{
 				assemble_4reg_cmp("cmpr", op1, op2, *it);
 			}
-			end_of_bb();
+			//end_of_bb();
 			assembly.push_back(tinyNode("jlt", result, ""));			
 		}
 		else if (code == "LE")
@@ -970,7 +978,7 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 			{
 				assemble_4reg_cmp("cmpr", op1, op2, *it);
 			}
-			end_of_bb();
+			//end_of_bb();
 			assembly.push_back(tinyNode("jle", result, ""));
 		}
 		else if (code == "NE")
@@ -983,7 +991,7 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 			{
 				assemble_4reg_cmp("cmpr", op1, op2, *it);
 			}
-			end_of_bb();
+			//end_of_bb();
 			assembly.push_back(tinyNode("jne", result, ""));
 		}
 		else if (code == "EQ")
@@ -996,7 +1004,7 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 			{
 				assemble_4reg_cmp("cmpr", op1, op2, *it);
 			}
-			end_of_bb();
+			//end_of_bb();
 			assembly.push_back(tinyNode("jeq", result, ""));
 		}
 		else if (code == "LABEL")
@@ -1005,11 +1013,11 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 		}
 		else if (code == "JSR")
 		{
-			save_globals();
 			assembly.push_back(tinyNode("push" , "r0", ""));
 			assembly.push_back(tinyNode("push" , "r1", ""));
 			assembly.push_back(tinyNode("push" , "r2", ""));
 			assembly.push_back(tinyNode("push" , "r3", ""));
+			//save_globals();
 			assembly.push_back(tinyNode("jsr", result, ""));
 			assembly.push_back(tinyNode("pop" , "r3", ""));
 			assembly.push_back(tinyNode("pop" , "r2", ""));
@@ -1020,8 +1028,10 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 		{
 			if (result != "") 
 			{
-				reg1 = ensure(result);
-				assembly.push_back(tinyNode("push", reg1->name, ""));
+				//reg1 = ensure(result);
+				//assembly.push_back(tinyNode("push", reg1->name, ""));
+				assembly.push_back(tinyNode("move", tinyOp(result), "r0"));
+				assembly.push_back(tinyNode("push" , "r0", ""));
 			}
 			else
 				assembly.push_back(tinyNode("push", "", ""));
@@ -1031,8 +1041,10 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 		{	
 			if (result != "") 
 			{
-				reg1 = ensure(result);	
-				assembly.push_back(tinyNode("pop", reg1->name, ""));
+				//reg1 = ensure(result);	
+				//assembly.push_back(tinyNode("pop", reg1->name, ""));
+				assembly.push_back(tinyNode("pop" , "r0", ""));
+				assembly.push_back(tinyNode("move", "r0", tinyOp(result)));
 			}
 			else
 				assembly.push_back(tinyNode("pop", "", ""));
@@ -1046,29 +1058,29 @@ void IR_to_4RegTiny(string func_name) // Takes a function name and translates th
 		}
 		else if (code == "RET")
 		{
-			end_of_bb();
+			//end_of_bb();
 			assembly.push_back(tinyNode("unlnk", "", ""));
 			assembly.push_back(tinyNode("ret", "", ""));
 		}
 		else if (code == "STOREI" || code == "STOREF")
 		{
-			if (result[0] == 'T')
-			{
-				reg1 = store_ensure(result);
-				assembly.push_back(tinyNode("move", op1, reg1->name));
-				reg1->dirty = true;
-			}
-			else
-			{
-				reg1 = ensure(op1);
-				reg2 = store_ensure(result);
-				assembly.push_back(tinyNode("move", reg1->name, reg2->name));
-				reg2->dirty = true;
+			/*
+			reg1 = ensure(op1);
+			reg2 = store_ensure(result);
+			assembly.push_back(tinyNode("move", reg1->name, reg2->name));
+			reg2->dirty = true;
 
-				st = it->out.find(op1);
-				if (st == it->out.end())
-					free_reg(reg1); // free op1
-			}
+			st = it->out.find(op1);
+			if (st == it->out.end())
+				free_reg(reg1); // free op1
+			st = it->out.find(result);
+			if (st == it->out.end())
+				free_reg(reg2); // free op1*/
+	
+			assembly.push_back(tinyNode("move", tinyOp(op1), "r0"));
+			assembly.push_back(tinyNode("move", "r0", tinyOp(result)));
+			if (!isdigit(op1[0]))
+				assembly.push_back(tinyNode("move", "r0", tinyOp(op1)));
 		}
 		// Plus
 		else if (code == "ADDI")
@@ -1188,22 +1200,31 @@ Register * ensure(string op)
 
 void free_reg(Register * r)
 {
-	assembly.push_back(tinyNode(";freeing", r->name, r->data));
-	bool live = true;
+	/*bool live = true;
 	set <string>::iterator st;
 	st = curr_node->out.find(r->data);
 	if (st == curr_node->out.end()) // the variable is not live
 	{
 		live = false;
-	}
+	}*/
 
-	if (r->dirty && live)
+	if (r->dirty)
 	{
+		assembly.push_back(tinyNode(";spilling dirty", r->name, r->data));
 		assembly.push_back(tinyNode("move", r->name, r->str()));
+		r->dirty = false;
+		r->data = "";
+	}
+	else
+	{
+		assembly.push_back(tinyNode(";freeing ", r->name, r->data));
+		r->data = "";
 	}
 
+
+	/*assembly.push_back(tinyNode(";freeing unused var", r->name, r->data));
 	r->dirty = false;
-	r->data = "";
+	r->data = "";*/
 }
 
 Register * allocate(string op)
@@ -1230,7 +1251,6 @@ Register * allocate(string op)
 	}
 
 	Register * r = spill();
-	assembly.push_back(tinyNode(";spilling", r->name, r->data));
 	free_reg(r);
 	r->data = op;
 	return r;
@@ -1245,7 +1265,7 @@ Register * spill()
 
 	Register * r;
 	vector <IRNode>::iterator it;
-	if (!isdigit(r0.data[0]))
+	if (!isdigit(r0.data[0]) && r0.data != curr_node->op1 && r0.data != curr_node->op2)
 	{
 		for (it = IR_it; it != curr_IR.end() && (*it).out.find(r0.data) != (*it).out.end(); ++it)
 		{
@@ -1254,7 +1274,7 @@ Register * spill()
 	}
 	r = &r0;
 
-	if (!isdigit(r1.data[0]))
+	if (!isdigit(r1.data[0]) && r1.data != curr_node->op1 && r1.data != curr_node->op2)
 	{
 		for (it = IR_it; it != curr_IR.end() && (*it).out.find(r1.data) != (*it).out.end(); ++it)
 		{
@@ -1264,7 +1284,7 @@ Register * spill()
 	if (dist1 > dist0)
 		r = &r1;
 
-	if (!isdigit(r2.data[0]))
+	if (!isdigit(r2.data[0]) && r2.data != curr_node->op1 && r2.data != curr_node->op2)
 	{
 		for (it = IR_it; it != curr_IR.end() && (*it).out.find(r2.data) != (*it).out.end(); ++it)
 		{
@@ -1274,7 +1294,7 @@ Register * spill()
 	if (dist2 > dist0 && dist2 > dist1)
 		r = &r1;
 
-	if (!isdigit(r3.data[0]))
+	if (!isdigit(r3.data[0]) && r3.data != curr_node->op1 && r3.data != curr_node->op2)
 	{
 		for (it = IR_it; it != curr_IR.end() && (*it).out.find(r3.data) != (*it).out.end(); ++it)
 		{
@@ -1289,6 +1309,7 @@ Register * spill()
 
 void assemble_mathop1(string opcode, string op1, string op2, string result, IRNode n)
 {
+	/*
 	Register * reg1;
 	Register * reg2;
 	reg1 = ensure(op1);
@@ -1304,13 +1325,24 @@ void assemble_mathop1(string opcode, string op1, string op2, string result, IRNo
 	if (st == n.out.end())
 		free_reg(reg2); // free if op2 is not live
 
-	reg2->data = result;
+	if (reg2->data != "" && reg2->dirty)
+		free(reg2);
+
 	assembly.push_back(tinyNode(opcode, reg1->name, reg2->name));
+
+	reg2->data = result;
+	assembly.push_back(tinyNode(";changing data of", reg2->name, " r0->" + r0.data + " r1->" + r1.data + " r2->" + r2.data + " r3->" + r3.data));
 	reg2->dirty = true;
+	*/
+	assembly.push_back(tinyNode("move", tinyOp(op1), "r0"));
+	assembly.push_back(tinyNode("move", tinyOp(op2), "r1"));
+	assembly.push_back(tinyNode(opcode, "r0", "r1"));
+	assembly.push_back(tinyNode("move", "r1", tinyOp(result)));
 }
 
 void assemble_mathop2(string opcode, string op1, string op2, string result, IRNode n)
 {
+	/*
 	Register * reg1;
 	Register * reg2;
 	reg1 = ensure(op1);
@@ -1326,13 +1358,23 @@ void assemble_mathop2(string opcode, string op1, string op2, string result, IRNo
 	if (st == n.out.end())
 		free_reg(reg2); // free if op2 is not live
 
-	reg1->data = result;
+	if (reg1->data != "" && reg1->dirty)
+		free(reg1);
+
 	assembly.push_back(tinyNode(opcode, reg2->name, reg1->name));
-	reg2->dirty = true;
+	reg1->data = result;
+	assembly.push_back(tinyNode(";changing data of", reg1->name, " r0->" + r0.data + " r1->" + r1.data + " r2->" + r2.data + " r3->" + r3.data));
+	reg1->dirty = true;
+	*/
+	assembly.push_back(tinyNode("move", tinyOp(op1), "r0"));
+	assembly.push_back(tinyNode("move", tinyOp(op2), "r1"));
+	assembly.push_back(tinyNode(opcode, "r1", "r0"));
+	assembly.push_back(tinyNode("move", "r0", tinyOp(result)));
 }
 
 void assemble_4reg_cmp(string opcode, string op1, string op2, IRNode n)
 {
+	/*
 	Register * reg1;
 	Register * reg2;
 	reg1 = ensure(op1);
@@ -1340,20 +1382,24 @@ void assemble_4reg_cmp(string opcode, string op1, string op2, IRNode n)
 
 	set <string>::iterator st;
 
-	// check if op1 is live
 	st = n.out.find(op1);
 	if (st != n.out.end())
-		free_reg(reg1);
-	// check if op2 is live
+		free_reg(reg1); // free op1 if it is not live
+
 	st = n.out.find(op2);
 	if (st != n.out.end())
-		free_reg(reg2);
+		free_reg(reg2); // free op2 if it is not live
 
 	assembly.push_back(tinyNode(opcode, reg1->name, reg2->name));
+	*/
+	assembly.push_back(tinyNode("move", tinyOp(op1), "r0"));
+	assembly.push_back(tinyNode("move", tinyOp(op2), "r1"));
+	assembly.push_back(tinyNode(opcode, "r0", "r1"));
 }
 
 void end_of_bb()
 {
+	assembly.push_back(tinyNode(";End of basic block", "", ""));
 	if ((r0.dirty || (r0.data[0] == '$' && r0.data[1] == 'L') || (r0.data[0] != '$' && !isdigit(r0.data[0]))) && r0.data != "")
 			assembly.push_back(tinyNode("move", r0.name, r0.str()));
 	if (r0.dirty)
@@ -1382,6 +1428,7 @@ void end_of_bb()
 
 void save_globals()
 {
+	assembly.push_back(tinyNode(";Save globals and free regs before function call", "", ""));
 	if (r0.data[0] != '$' && !isdigit(r0.data[0]) && r0.data != "")
 		assembly.push_back(tinyNode("move", r0.name, r0.str()));
 	if (r0.dirty)
@@ -1400,7 +1447,12 @@ void save_globals()
 	if (r3.data[0] != '$' && !isdigit(r3.data[0]) && r3.data != "")
 		assembly.push_back(tinyNode("move", r3.name, r3.str()));
 	if (r3.dirty)
-		r3.dirty = false;		
+		r3.dirty = false;
+
+	r0.data = "";
+	r1.data = "";
+	r2.data = "";
+	r3.data = "";		
 }
 /*
 void IR_to_tiny(string fid) // Takes a function name and translates the IR for that function to tiny nodes

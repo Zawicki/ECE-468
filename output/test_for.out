@@ -32,6 +32,8 @@ var j
 var newapprox
 var approx
 var num
+str eol "\n"
+str space " "
 push
 push r0
 push r1
@@ -166,6 +168,10 @@ move r2 $-5
 ;ensure(): $T6 has register r1 { r0->null r1->$T6 r2->null r3->approx }
 ;ensure(): i gets register r2 { r0->null r1->$T6 r2->i r3->approx }
 move r1 r2
+sys writei r2
+sys writes space
+sys writer r3
+sys writes eol
 ;Freeing unused variable $T6
 ;Spilling variable: $T6
 move r1 $-6
